@@ -177,12 +177,15 @@ class LLMClient:
                 pass
 
         # 4. Zero-Key Default Engine (Pollinations.ai)
-        # Tier A: SSE stream from /openai
+        # Tier A: SSE stream from /openai with synchronized thought support
         success = False
+        in_thought = False
+        thought_closed = False
+
         try:
             endpoint = "https://text.pollinations.ai/openai"
             payload = {
-                "model": "openai-fast",
+                "model": "openai",
                 "messages": messages,
                 "temperature": temperature,
                 "stream": True
@@ -194,6 +197,9 @@ class LLMClient:
                             if line.startswith("data: "):
                                 data_str = line[6:].strip()
                                 if data_str == "[DONE]":
+                                    if in_thought and not thought_closed:
+                                        yield "\n</thought>\n\n"
+                                        thought_closed = True
                                     success = True
                                     return
                                 try:
@@ -201,7 +207,20 @@ class LLMClient:
                                     choices = data_json.get("choices", [])
                                     if choices:
                                         delta = choices[0].get("delta", {})
+
+                                        # Handle reasoning tokens: emit inside <thought>
+                                        if "reasoning" in delta and delta["reasoning"]:
+                                            if not in_thought:
+                                                yield "<thought>\n"
+                                                in_thought = True
+                                            yield delta["reasoning"]
+                                            success = True
+
+                                        # Handle regular content tokens
                                         if "content" in delta and delta["content"]:
+                                            if in_thought and not thought_closed:
+                                                yield "\n</thought>\n\n"
+                                                thought_closed = True
                                             yield delta["content"]
                                             success = True
                                 except Exception:

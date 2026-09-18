@@ -213,9 +213,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
         ) : (
           messages.map((msg) => {
             const isUser = msg.role === 'user';
-            const isThinking = isStreaming && msg.thought && !msg.content;
+            const isThinking = isStreaming && Boolean(msg.thought) && !msg.content;
             const hasThought = Boolean(msg.thought);
-            const isExpanded = expandedThoughts[msg.id] ?? true;
+            const isExpanded = expandedThoughts[msg.id] ?? (reasoningMode || isThinking);
 
             return (
               <div
