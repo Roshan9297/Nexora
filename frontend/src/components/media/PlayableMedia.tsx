@@ -21,7 +21,7 @@ export interface PlayableMediaProps {
 export function MoviePlayer({ query, targetPlatform }: { query: string; targetPlatform?: string }) {
   const [loading, setLoading] = useState(true);
   const [movieData, setMovieData] = useState<any>(null);
-  const [selectedServer, setSelectedServer] = useState<'vidsrc' | 'embedsu' | 'autoembed' | 'trailer'>('trailer');
+  const [selectedServer, setSelectedServer] = useState<'fullmovie' | 'smashy' | 'vidsrc' | 'autoembed' | 'trailer'>('fullmovie');
 
   useEffect(() => {
     let isMounted = true;
@@ -32,12 +32,8 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
       .then((data) => {
         if (isMounted && data.success) {
           setMovieData(data);
-          // If we have an IMDb ID, default to Server 1, else trailer
-          if (data.imdbId) {
-            setSelectedServer('vidsrc');
-          } else {
-            setSelectedServer('trailer');
-          }
+          // Always prioritize Full Movie Stream by default!
+          setSelectedServer('fullmovie');
           setLoading(false);
         }
       })
@@ -51,35 +47,47 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
   }, [query]);
 
   const imdbId = movieData?.imdbId;
+  const fullMovieId = movieData?.fullMovieId;
   const trailerId = movieData?.trailerId;
   const title = movieData?.title || query;
+  const cleanTitle = movieData?.cleanTitle || query;
   const platforms = movieData?.platforms || {
     netflix: `https://www.netflix.com/search?q=${encodeURIComponent(title)}`,
     prime: `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${encodeURIComponent(title)}`,
     hotstar: `https://www.hotstar.com/in/search?q=${encodeURIComponent(title)}`,
     jiocinema: `https://www.jiocinema.com/search/${encodeURIComponent(title)}`,
+    aha: `https://www.aha.video/search?q=${encodeURIComponent(title)}`,
     appletv: `https://tv.apple.com/search?term=${encodeURIComponent(title)}`,
     youtube: `https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' full movie')}`,
   };
 
   const getEmbedUrl = () => {
+    if (selectedServer === 'fullmovie') {
+      if (fullMovieId) {
+        return `https://www.youtube-nocookie.com/embed/${fullMovieId}?autoplay=1&rel=0`;
+      }
+      return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(cleanTitle + ' full movie')}&autoplay=1`;
+    }
+    if (selectedServer === 'smashy' && imdbId) {
+      return `https://embed.smashystream.com/playere.php?imdb=${imdbId}`;
+    }
     if (selectedServer === 'vidsrc' && imdbId) {
       return `https://vidsrc.to/embed/movie/${imdbId}`;
     }
-    if (selectedServer === 'embedsu' && imdbId) {
-      return `https://embed.su/embed/movie/${imdbId}`;
-    }
     if (selectedServer === 'autoembed' && imdbId) {
-      return `https://autoembed.to/movie/imdb/${imdbId}`;
+      return `https://player.autoembed.cc/embed/movie/${imdbId}`;
     }
-    if (trailerId) {
-      return `https://www.youtube-nocookie.com/embed/${trailerId}?autoplay=1&rel=0`;
+    if (selectedServer === 'trailer') {
+      if (trailerId) {
+        return `https://www.youtube-nocookie.com/embed/${trailerId}?autoplay=1&rel=0`;
+      }
+      return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(title + ' official trailer')}&autoplay=1`;
     }
-    return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(title + ' movie')}&autoplay=1`;
+    return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(cleanTitle + ' full movie')}&autoplay=1`;
   };
 
   return (
-    <div className="my-3 rounded-2xl border border-red-500/30 bg-gradient-to-br from-[#120a14] via-[#0f111d] to-[#080a12] p-4 shadow-2xl shadow-red-950/20 max-w-2xl text-gray-200">
+    <div className="my-3 rounded-2xl border border-red-500/30 bg-gradient-to-br from-[#140b17] via-[#0f1220] to-[#080b14] p-4 shadow-2xl shadow-red-950/25 max-w-2xl text-gray-200">
       {/* Movie Details Header */}
       <div className="flex gap-3.5 mb-4">
         {movieData?.poster ? (
@@ -96,8 +104,8 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 bg-red-950/60 border border-red-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <Tv className="w-3 h-3" /> Digital Cinema Hub
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Full Movie Stream
             </span>
             {movieData?.description && (
               <span className="text-[11px] text-gray-400">
@@ -111,7 +119,7 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
           </h3>
 
           <p className="text-xs text-gray-300/80 line-clamp-2 mt-1 leading-relaxed">
-            {movieData?.synopsis || `Stream ${title} directly or launch on your favorite OTT subscription.`}
+            {movieData?.synopsis || `Stream ${title} directly in HD or launch on your favorite OTT subscription.`}
           </p>
         </div>
       </div>
@@ -120,7 +128,7 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
       <div className="mb-3.5 pt-3 border-t border-white/10">
         <div className="flex items-center justify-between text-xs mb-2">
           <span className="text-gray-300 font-medium flex items-center gap-1.5">
-            <MonitorPlay className="w-3.5 h-3.5 text-red-400" /> Stream on Official OTT Platforms:
+            <MonitorPlay className="w-3.5 h-3.5 text-red-400" /> Watch on Digital OTT Platforms:
           </span>
           <span className="text-[11px] text-gray-400">1-Click Launch</span>
         </div>
@@ -162,7 +170,7 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
             <ExternalLink className="w-3 h-3" />
           </a>
 
-          {/* JioCinema / Apple TV */}
+          {/* JioCinema */}
           <a
             href={platforms.jiocinema}
             target="_blank"
@@ -173,16 +181,76 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
             <span>JioCinema</span>
             <ExternalLink className="w-3 h-3" />
           </a>
+
+          {/* Aha Video (Regional South Cinema) */}
+          <a
+            href={platforms.aha}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#FF6400] text-white font-bold hover:bg-[#e05800] shadow-md shadow-orange-900/30 transition-all hover:scale-[1.02]"
+            title={`Watch ${title} on Aha Video`}
+          >
+            <span>Aha Video</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+
+          {/* Apple TV+ */}
+          <a
+            href={platforms.appletv}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 text-white font-bold hover:bg-white/20 border border-white/10 shadow-md transition-all hover:scale-[1.02]"
+            title={`Watch ${title} on Apple TV`}
+          >
+            <span>Apple TV</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+
+          {/* YouTube Full Movie */}
+          <a
+            href={platforms.youtube}
+            target="_blank"
+            rel="noreferrer"
+            className="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-red-600/20 text-red-300 border border-red-500/30 font-bold hover:bg-red-600/30 shadow-md transition-all hover:scale-[1.02]"
+            title={`Watch full movie on YouTube`}
+          >
+            <span>YouTube HD Full Movie</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
       </div>
 
       {/* Stream Source Selector */}
       <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto text-[11px] pb-1">
         <span className="text-gray-400 shrink-0 font-medium flex items-center gap-1 mr-1">
-          <Radio className="w-3 h-3 text-cyan-400" /> Player Stream:
+          <Radio className="w-3 h-3 text-emerald-400" /> Movie Player:
         </span>
+
+        {/* Primary Full Movie Stream Button */}
+        <button
+          onClick={() => setSelectedServer('fullmovie')}
+          className={`px-3 py-1 rounded-lg font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+            selectedServer === 'fullmovie'
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm shadow-emerald-500/20 font-bold'
+              : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>▶️ Full Movie (HD Stream)</span>
+        </button>
+
         {imdbId && (
           <>
+            <button
+              onClick={() => setSelectedServer('smashy')}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all shrink-0 ${
+                selectedServer === 'smashy'
+                  ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
+                  : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
+              }`}
+            >
+              Cloud 1 (Smashy)
+            </button>
             <button
               onClick={() => setSelectedServer('vidsrc')}
               className={`px-2.5 py-1 rounded-lg font-medium transition-all shrink-0 ${
@@ -191,7 +259,7 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
                   : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
               }`}
             >
-              Stream 1 (VidSrc)
+              Cloud 2 (VidSrc)
             </button>
             <button
               onClick={() => setSelectedServer('autoembed')}
@@ -201,10 +269,11 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
                   : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
               }`}
             >
-              Stream 2 (AutoEmbed)
+              Cloud 3 (AutoEmbed)
             </button>
           </>
         )}
+
         <button
           onClick={() => setSelectedServer('trailer')}
           className={`px-2.5 py-1 rounded-lg font-medium transition-all shrink-0 ${
@@ -213,15 +282,15 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
         >
-          🎬 HD Trailer / YouTube
+          🎬 Official Trailer
         </button>
       </div>
 
       {/* Player Frame */}
       {loading ? (
-        <div className="aspect-video w-full rounded-xl bg-black/40 border border-white/5 flex items-center justify-center gap-3 text-sm text-red-400/80 font-mono">
-          <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-          <span>Connecting to movie stream...</span>
+        <div className="aspect-video w-full rounded-xl bg-black/40 border border-white/5 flex items-center justify-center gap-3 text-sm text-emerald-400/80 font-mono">
+          <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+          <span>Connecting to full movie stream...</span>
         </div>
       ) : (
         <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl">
