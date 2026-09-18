@@ -33,7 +33,7 @@ export function MoviePlayer({
 }) {
   const [loading, setLoading] = useState(true);
   const [movieData, setMovieData] = useState<any>(null);
-  const [selectedServer, setSelectedServer] = useState<'server1' | 'server2' | 'server3' | 'server4'>('server1');
+  const [selectedServer, setSelectedServer] = useState<'server1' | 'server2' | 'server3' | 'server4' | 'server5'>('server1');
   const [season, setSeason] = useState(initialSeason);
   const [episode, setEpisode] = useState(initialEpisode);
 
@@ -84,7 +84,8 @@ export function MoviePlayer({
   const imdbId = movieData?.imdbId;
   const tmdbId = movieData?.tmdbId;
   const isSeries = movieData?.mediaType === 'series';
-  const targetId = tmdbId || imdbId || 'tt1375666';
+  // Use imdbId primarily for movies (e.g. tt32474264) to avoid issues with high TMDB IDs on scrapers
+  const targetId = (isSeries ? tmdbId || imdbId : imdbId || tmdbId) || 'tt1375666';
   const title = movieData?.title || query;
 
   const getEmbedUrl = () => {
@@ -97,27 +98,30 @@ export function MoviePlayer({
         return `https://www.2embed.cc/embedtv/${imdbId || targetId}&s=${season}&e=${episode}`;
       }
       if (selectedServer === 'server3') {
-        return `https://embed.smashystream.com/playere.php?${tmdbId ? 'tmdb=' + tmdbId : 'imdb=' + imdbId}&season=${season}&episode=${episode}`;
+        return `https://vidsrc.pm/embed/tv/${imdbId || targetId}/${season}/${episode}`;
       }
       if (selectedServer === 'server4') {
-        return `https://vidsrc.xyz/embed/tv?imdb=${imdbId || targetId}&season=${season}&episode=${episode}`;
+        return `https://embed.smashystream.com/playere.php?${imdbId ? 'imdb=' + imdbId : 'tmdb=' + tmdbId}&season=${season}&episode=${episode}`;
       }
       return `https://vidlink.pro/tv/${targetId}/${season}/${episode}`;
     } else {
       // Movie Streaming URLs
       if (selectedServer === 'server1') {
-        return `https://vidlink.pro/movie/${targetId}?primaryColor=06b6d4&autoplay=false`;
+        return `https://www.2embed.cc/embed/${imdbId || targetId}`;
       }
       if (selectedServer === 'server2') {
-        return `https://autoembed.co/movie/imdb/${imdbId || targetId}`;
+        return `https://vidlink.pro/movie/${targetId}?primaryColor=06b6d4&autoplay=false`;
       }
       if (selectedServer === 'server3') {
-        return `https://embed.smashystream.com/playere.php?${tmdbId ? 'tmdb=' + tmdbId : 'imdb=' + imdbId}`;
+        return `https://vidsrc.pm/embed/movie/${imdbId || targetId}`;
       }
       if (selectedServer === 'server4') {
-        return `https://www.2embed.cc/embed/${targetId}`;
+        return `https://embed.smashystream.com/playere.php?${imdbId ? 'imdb=' + imdbId : 'tmdb=' + tmdbId}`;
       }
-      return `https://vidlink.pro/movie/${targetId}`;
+      if (selectedServer === 'server5') {
+        return `https://autoembed.co/movie/imdb/${imdbId || targetId}`;
+      }
+      return `https://www.2embed.cc/embed/${imdbId || targetId}`;
     }
   };
 
@@ -226,7 +230,7 @@ export function MoviePlayer({
           <Radio className="w-3.5 h-3.5 text-cyan-400" /> Servers:
         </span>
 
-        {/* Server 1: VidLink HD */}
+        {/* Server 1 */}
         <button
           onClick={() => setSelectedServer('server1')}
           className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 flex items-center gap-1.5 ${
@@ -234,13 +238,13 @@ export function MoviePlayer({
               ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-500/20 font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title="Server 1: Full 1080p Stream (Ad-Free)"
+          title={isSeries ? 'Server 1: Full HD Stream (Dub & Sub)' : 'Server 1: 2Embed HD (Primary)'}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-          <span>Server 1 (VidLink HD)</span>
+          <span>{isSeries ? 'Server 1 (VidLink HD)' : 'Server 1 (2Embed HD)'}</span>
         </button>
 
-        {/* Server 2: AutoEmbed / 2Embed */}
+        {/* Server 2 */}
         <button
           onClick={() => setSelectedServer('server2')}
           className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
@@ -248,12 +252,12 @@ export function MoviePlayer({
               ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title="Server 2: Fast Digital Mirror"
+          title={isSeries ? 'Server 2: 2Embed TV' : 'Server 2: VidLink Pro HD'}
         >
-          Server 2 (2Embed)
+          <span>{isSeries ? 'Server 2 (2Embed TV)' : 'Server 2 (VidLink Pro)'}</span>
         </button>
 
-        {/* Server 3: SmashyStream */}
+        {/* Server 3 */}
         <button
           onClick={() => setSelectedServer('server3')}
           className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
@@ -261,12 +265,12 @@ export function MoviePlayer({
               ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title="Server 3: Multi-Source Stream"
+          title="Server 3: VidSrc PM Stream"
         >
-          Server 3 (Smashy)
+          <span>Server 3 (VidSrc PM)</span>
         </button>
 
-        {/* Server 4: VidSrc / AutoEmbed */}
+        {/* Server 4 */}
         <button
           onClick={() => setSelectedServer('server4')}
           className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
@@ -274,10 +278,25 @@ export function MoviePlayer({
               ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title="Server 4: Global Stream Mirror"
+          title="Server 4: Multi-Source Stream"
         >
-          Server 4 (VidSrc)
+          <span>Server 4 (Smashy)</span>
         </button>
+
+        {/* Server 5 (Movies only) */}
+        {!isSeries && (
+          <button
+            onClick={() => setSelectedServer('server5')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
+              selectedServer === 'server5'
+                ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
+                : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
+            }`}
+            title="Server 5: Fast Cloud Mirror"
+          >
+            <span>Server 5 (AutoEmbed)</span>
+          </button>
+        )}
       </div>
 
       {/* Video Player Frame with Anti-Redirect Protection */}
@@ -296,6 +315,15 @@ export function MoviePlayer({
           />
         </div>
       )}
+
+      {/* Help note if a server plays an alternate stream */}
+      <div className="mt-2.5 flex items-center justify-between text-[11px] text-gray-400 px-1">
+        <span className="flex items-center gap-1.5 text-gray-400">
+          <Clapperboard className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          <span>If any server plays an alternate title or trailer, switch between Servers 1 to 5 above.</span>
+        </span>
+        <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">Anti-Redirect Active</span>
+      </div>
     </div>
   );
 }

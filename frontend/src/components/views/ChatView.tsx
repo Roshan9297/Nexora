@@ -78,11 +78,26 @@ function extractPlayableMedia(content: string, userPrompt?: string) {
       }
     }
 
-    // Movies (e.g. "play Inception", "watch Inception on Netflix", "play movie Pushpa", "stream Oppenheimer")
+    // Video / Trailer detection
+    if (/trailer|teaser|clip|video/i.test(p)) {
+      const q = p.replace(/^(?:play|show|watch)\s+(?:the\s+)?/i, '').trim();
+      return { type: 'video' as const, query: q };
+    }
+
+    // Song detection: ONLY if user explicitly asks for a song, music, audio, or says "listen to"
+    if (/listen\s+to|\b(?:song|music|track|audio|soundtrack)\b/i.test(p)) {
+      const q = p
+        .replace(/^(?:play|listen\s+to)\s+(?:the\s+)?/i, '')
+        .replace(/\b(?:song|music|track|audio|soundtrack)\b/gi, '')
+        .trim();
+      if (q) return { type: 'song' as const, query: q };
+    }
+
+    // Movies (e.g. "play Inception", "watch Inception on Netflix", "play korean kanakaraju", "stream Oppenheimer")
     const platformMatch = p.match(/\b(?:on|in|from)\s+(netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|apple(?:\s*tv)?)\b/i);
     const targetPlatform = platformMatch ? platformMatch[1].toLowerCase() : 'all';
 
-    if (/\b(?:movie|film|cinema)\b/i.test(p) || platformMatch) {
+    if (/^(?:play|watch|stream|show)\b/i.test(p) || /\b(?:movie|film|cinema)\b/i.test(p) || platformMatch) {
       const cleanTitle = p
         .replace(/^(?:play|watch|stream|show)\s+(?:the\s+)?(?:movie\s+)?/i, '')
         .replace(/\b(?:on|in|from)\s+(netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|apple(?:\s*tv)?)\b/i, '')
@@ -91,17 +106,6 @@ function extractPlayableMedia(content: string, userPrompt?: string) {
       if (cleanTitle) {
         return { type: 'movie' as const, query: cleanTitle, platform: targetPlatform as any };
       }
-    }
-
-    if (/trailer|teaser|clip|video/i.test(p)) {
-      const q = p.replace(/^(?:play|show|watch)\s+(?:the\s+)?/i, '').trim();
-      return { type: 'video' as const, query: q };
-    }
-
-    const songMatch = p.match(/^(?:play|listen\s+to)\s+(?:the\s+)?(?:song\s+)?(.+)/i);
-    if (songMatch) {
-      const q = songMatch[1].replace(/song$/i, '').trim();
-      return { type: 'song' as const, query: q };
     }
   }
 
