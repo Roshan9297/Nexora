@@ -33,7 +33,7 @@ export function MoviePlayer({
 }) {
   const [loading, setLoading] = useState(true);
   const [movieData, setMovieData] = useState<any>(null);
-  const [selectedServer, setSelectedServer] = useState<'server1' | 'server2' | 'server3' | 'server4' | 'server5'>('server1');
+  const [selectedServer, setSelectedServer] = useState<'server1' | 'server2' | 'server3'>('server1');
   const [season, setSeason] = useState(initialSeason);
   const [episode, setEpisode] = useState(initialEpisode);
 
@@ -84,13 +84,18 @@ export function MoviePlayer({
   const imdbId = movieData?.imdbId;
   const tmdbId = movieData?.tmdbId;
   const isSeries = movieData?.mediaType === 'series';
-  // Use imdbId primarily for movies (e.g. tt32474264) to avoid issues with high TMDB IDs on scrapers
-  const targetId = (isSeries ? tmdbId || imdbId : imdbId || tmdbId) || 'tt1375666';
+  // Use resolved IMDb or TMDb ID. NEVER fall back to hardcoded Inception (tt1375666)!
+  const targetId = isSeries ? tmdbId || imdbId : imdbId || tmdbId;
   const title = movieData?.title || query;
 
   const getEmbedUrl = () => {
+    // If no stream ID was resolved, stream the verified movie video / stream directly via YouTube
+    if (!targetId) {
+      return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query + (isSeries ? ' series episode 1' : ' full movie'))}&autoplay=1`;
+    }
+
     if (isSeries) {
-      // Series / Anime Streaming URLs
+      // 3 Dedicated Series / Anime Streaming Servers
       if (selectedServer === 'server1') {
         return `https://vidlink.pro/tv/${targetId}/${season}/${episode}?primaryColor=06b6d4&autoplay=false`;
       }
@@ -98,14 +103,11 @@ export function MoviePlayer({
         return `https://www.2embed.cc/embedtv/${imdbId || targetId}&s=${season}&e=${episode}`;
       }
       if (selectedServer === 'server3') {
-        return `https://vidsrc.pm/embed/tv/${imdbId || targetId}/${season}/${episode}`;
-      }
-      if (selectedServer === 'server4') {
         return `https://embed.smashystream.com/playere.php?${imdbId ? 'imdb=' + imdbId : 'tmdb=' + tmdbId}&season=${season}&episode=${episode}`;
       }
       return `https://vidlink.pro/tv/${targetId}/${season}/${episode}`;
     } else {
-      // Movie Streaming URLs
+      // 3 Dedicated Movie Streaming Servers
       if (selectedServer === 'server1') {
         return `https://www.2embed.cc/embed/${imdbId || targetId}`;
       }
@@ -113,13 +115,7 @@ export function MoviePlayer({
         return `https://vidlink.pro/movie/${targetId}?primaryColor=06b6d4&autoplay=false`;
       }
       if (selectedServer === 'server3') {
-        return `https://vidsrc.pm/embed/movie/${imdbId || targetId}`;
-      }
-      if (selectedServer === 'server4') {
         return `https://embed.smashystream.com/playere.php?${imdbId ? 'imdb=' + imdbId : 'tmdb=' + tmdbId}`;
-      }
-      if (selectedServer === 'server5') {
-        return `https://autoembed.co/movie/imdb/${imdbId || targetId}`;
       }
       return `https://www.2embed.cc/embed/${imdbId || targetId}`;
     }
@@ -265,38 +261,10 @@ export function MoviePlayer({
               ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title="Server 3: VidSrc PM Stream"
+          title="Server 3: SmashyStream HD"
         >
-          <span>Server 3 (VidSrc PM)</span>
+          <span>Server 3 (Smashy HD)</span>
         </button>
-
-        {/* Server 4 */}
-        <button
-          onClick={() => setSelectedServer('server4')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
-            selectedServer === 'server4'
-              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
-              : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
-          }`}
-          title="Server 4: Multi-Source Stream"
-        >
-          <span>Server 4 (Smashy)</span>
-        </button>
-
-        {/* Server 5 (Movies only) */}
-        {!isSeries && (
-          <button
-            onClick={() => setSelectedServer('server5')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
-              selectedServer === 'server5'
-                ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
-                : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
-            }`}
-            title="Server 5: Fast Cloud Mirror"
-          >
-            <span>Server 5 (AutoEmbed)</span>
-          </button>
-        )}
       </div>
 
       {/* Video Player Frame with Anti-Redirect Protection */}
