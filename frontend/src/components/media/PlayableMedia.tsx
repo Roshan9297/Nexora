@@ -33,7 +33,7 @@ export function MoviePlayer({
 }) {
   const [loading, setLoading] = useState(true);
   const [movieData, setMovieData] = useState<any>(null);
-  const [selectedServer, setSelectedServer] = useState<'server1' | 'server2' | 'server3'>('server1');
+  const [selectedServer, setSelectedServer] = useState<'server1' | 'server2'>('server1');
   const [season, setSeason] = useState(initialSeason);
   const [episode, setEpisode] = useState(initialEpisode);
 
@@ -95,7 +95,7 @@ export function MoviePlayer({
     }
 
     if (isSeries) {
-      // 3 Dedicated Series / Anime Streaming Servers
+      // 2 Dedicated Series / Anime Streaming Servers
       if (selectedServer === 'server1') {
         // VidLink TV requires numeric TMDb ID; fallback to 2Embed TV if only imdbId is available
         if (tmdbId) {
@@ -107,21 +107,16 @@ export function MoviePlayer({
         // 2Embed TV works with either IMDb ID or TMDb ID
         return `https://www.2embed.cc/embedtv/${imdbId || tmdbId || targetId}&s=${season}&e=${episode}`;
       }
-      if (selectedServer === 'server3') {
-        // SmashyStream works with both TMDb and IMDb
-        return `https://embed.smashystream.com/playere.php?${tmdbId ? 'tmdb=' + tmdbId : 'imdb=' + imdbId}&season=${season}&episode=${episode}`;
-      }
-      return `https://vidlink.pro/tv/${tmdbId || targetId}/${season}/${episode}`;
+      return tmdbId
+        ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=06b6d4&autoplay=false`
+        : `https://www.2embed.cc/embedtv/${imdbId || targetId}&s=${season}&e=${episode}`;
     } else {
-      // 3 Dedicated Movie Streaming Servers
+      // 2 Dedicated Movie Streaming Servers
       if (selectedServer === 'server1') {
         return `https://www.2embed.cc/embed/${imdbId || tmdbId || targetId}`;
       }
       if (selectedServer === 'server2') {
         return `https://vidlink.pro/movie/${tmdbId || imdbId || targetId}?primaryColor=06b6d4&autoplay=false`;
-      }
-      if (selectedServer === 'server3') {
-        return `https://embed.smashystream.com/playere.php?${imdbId ? 'imdb=' + imdbId : 'tmdb=' + tmdbId}`;
       }
       return `https://www.2embed.cc/embed/${imdbId || tmdbId || targetId}`;
     }
@@ -258,19 +253,6 @@ export function MoviePlayer({
         >
           <span>{isSeries ? 'Server 2 (2Embed TV)' : 'Server 2 (VidLink Pro)'}</span>
         </button>
-
-        {/* Server 3 */}
-        <button
-          onClick={() => setSelectedServer('server3')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
-            selectedServer === 'server3'
-              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
-              : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
-          }`}
-          title="Server 3: SmashyStream HD"
-        >
-          <span>Server 3 (Smashy HD)</span>
-        </button>
       </div>
 
       {/* Video Player Frame with Anti-Redirect Protection */}
@@ -294,7 +276,7 @@ export function MoviePlayer({
       <div className="mt-2.5 flex items-center justify-between text-[11px] text-gray-400 px-1">
         <span className="flex items-center gap-1.5 text-gray-400">
           <Clapperboard className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-          <span>If any server plays an alternate title or trailer, switch between Servers 1, 2, or 3 above.</span>
+          <span>If any server plays an alternate title or trailer, switch between Server 1 and Server 2 above.</span>
         </span>
         <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">Anti-Redirect Active</span>
       </div>
