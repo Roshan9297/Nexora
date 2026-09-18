@@ -97,14 +97,14 @@ export function MoviePlayer({
     if (isSeries) {
       // 2 Dedicated Series / Anime Streaming Servers
       if (selectedServer === 'server1') {
-        // VidLink TV requires numeric TMDb ID; fallback to 2Embed TV if only imdbId is available
+        // VidLink TV (Server 1: Ad-Free, No Redirects, Dub & Sub)
         if (tmdbId) {
           return `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=06b6d4&autoplay=false`;
         }
         return `https://www.2embed.cc/embedtv/${imdbId || targetId}&s=${season}&e=${episode}`;
       }
       if (selectedServer === 'server2') {
-        // 2Embed TV works with either IMDb ID or TMDb ID
+        // 2Embed TV (Server 2: Alternate Mirror)
         return `https://www.2embed.cc/embedtv/${imdbId || tmdbId || targetId}&s=${season}&e=${episode}`;
       }
       return tmdbId
@@ -113,12 +113,14 @@ export function MoviePlayer({
     } else {
       // 2 Dedicated Movie Streaming Servers
       if (selectedServer === 'server1') {
-        return `https://www.2embed.cc/embed/${imdbId || tmdbId || targetId}`;
-      }
-      if (selectedServer === 'server2') {
+        // VidLink Movie (Server 1: Clean HD Stream, No Redirects)
         return `https://vidlink.pro/movie/${tmdbId || imdbId || targetId}?primaryColor=06b6d4&autoplay=false`;
       }
-      return `https://www.2embed.cc/embed/${imdbId || tmdbId || targetId}`;
+      if (selectedServer === 'server2') {
+        // 2Embed Movie (Server 2: Alternate Mirror)
+        return `https://www.2embed.cc/embed/${imdbId || tmdbId || targetId}`;
+      }
+      return `https://vidlink.pro/movie/${tmdbId || imdbId || targetId}?primaryColor=06b6d4&autoplay=false`;
     }
   };
 
@@ -235,10 +237,10 @@ export function MoviePlayer({
               ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-500/20 font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title={isSeries ? 'Server 1: Full HD Stream (Dub & Sub)' : 'Server 1: 2Embed HD (Primary)'}
+          title="Server 1: VidLink Pro HD (Clean & Ad-Free)"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-          <span>{isSeries ? 'Server 1 (VidLink HD)' : 'Server 1 (2Embed HD)'}</span>
+          <span>Server 1 (VidLink HD)</span>
         </button>
 
         {/* Server 2 */}
@@ -249,9 +251,9 @@ export function MoviePlayer({
               ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title={isSeries ? 'Server 2: 2Embed TV' : 'Server 2: VidLink Pro HD'}
+          title="Server 2: 2Embed Stream Mirror"
         >
-          <span>{isSeries ? 'Server 2 (2Embed TV)' : 'Server 2 (VidLink Pro)'}</span>
+          <span>Server 2 (2Embed HD)</span>
         </button>
       </div>
 
@@ -266,6 +268,7 @@ export function MoviePlayer({
           <iframe
             src={getEmbedUrl()}
             className="w-full h-full"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
           />
