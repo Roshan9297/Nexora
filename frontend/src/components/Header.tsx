@@ -9,6 +9,8 @@ import {
   Zap,
   Globe2,
   PanelLeftOpen,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -34,6 +36,20 @@ export const Header: React.FC<HeaderProps> = ({
   isCollapsed,
   setIsCollapsed,
 }) => {
+  const [isOnline, setIsOnline] = React.useState(true);
+
+  React.useEffect(() => {
+    setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
   const titles: Record<AgentType, { name: string; subtitle: string }> = {
     chat: { name: 'AI Chat', subtitle: 'Next-Gen Multi-Turn Conversational Assistant' },
     reasoning: { name: 'Deep Reasoning Engine', subtitle: 'Step-by-step Chain-of-Thought CoT (o3 / DeepSeek-R1)' },
@@ -76,6 +92,25 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Control Actions */}
       <div className="flex items-center gap-3">
+        {/* Network Status Badge */}
+        {isOnline ? (
+          <div
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+            title="Internet Connected - Live Streaming & Grounding Active"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Online</span>
+          </div>
+        ) : (
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"
+            title="NEXORA Offline Mode Active - Built-in Intelligence & Offline Arcade Ready"
+          >
+            <WifiOff className="w-3 h-3 text-amber-400" />
+            <span>Offline Mode</span>
+          </div>
+        )}
+
         {/* Deep Reasoning Mode Toggle */}
         <button
           onClick={() => setReasoningMode(!reasoningMode)}

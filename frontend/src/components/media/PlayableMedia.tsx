@@ -2,48 +2,40 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  Play, Pause, RotateCcw, Volume2, VolumeX, Maximize2, ExternalLink, 
-  Music, Film, Gamepad2, Trophy, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
-  Sparkles, Check, Flame, Tv, Clapperboard, MonitorPlay, Radio, Info
+  Play, Pause, RotateCcw, ExternalLink, 
+  Music, Film, Clapperboard, Radio, Tv, Sparkles,
+  ChevronLeft, ChevronRight, Layers, ArrowUp, ArrowDown, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export interface PlayableMediaProps {
-  type: 'song' | 'video' | 'game' | 'movie';
+  type: 'song' | 'video' | 'game' | 'movie' | 'series';
   query?: string;
   gameName?: 'snake' | 'tictactoe' | '2048' | 'flappy' | 'pong' | 'arcade';
   platform?: 'netflix' | 'prime' | 'hotstar' | 'all';
+  season?: number;
+  episode?: number;
 }
 
 /* =========================================================================
-   1. DIGITAL PLATFORM MOVIE & CINEMA PLAYER (Netflix, Prime, Hotstar, Free)
+   1. DIGITAL CINEMA, ANIME & TV SERIES PLAYER
    ========================================================================= */
-export function MoviePlayer({ query, targetPlatform }: { query: string; targetPlatform?: string }) {
+export function MoviePlayer({ 
+  query, 
+  targetPlatform,
+  initialSeason = 1,
+  initialEpisode = 1 
+}: { 
+  query: string; 
+  targetPlatform?: string;
+  initialSeason?: number;
+  initialEpisode?: number;
+}) {
   const [loading, setLoading] = useState(true);
   const [movieData, setMovieData] = useState<any>(null);
   const [selectedServer, setSelectedServer] = useState<'server1' | 'server2' | 'server3' | 'server4'>('server1');
-
-  useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
-
-    fetch(`/api/movie/info?q=${encodeURIComponent(query)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (isMounted && data.success) {
-          setMovieData(data);
-          setSelectedServer('server1');
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [query]);
+  const [season, setSeason] = useState(initialSeason);
+  const [episode, setEpisode] = useState(initialEpisode);
 
   // Prevent unwanted popup redirects from third-party players
   useEffect(() => {
@@ -65,39 +57,76 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+
+    fetch(`/api/movie/info?q=${encodeURIComponent(query)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.success) {
+          setMovieData(data);
+          if (data.requestedSeason) setSeason(data.requestedSeason);
+          if (data.requestedEpisode) setEpisode(data.requestedEpisode);
+          setSelectedServer('server1');
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [query]);
+
   const imdbId = movieData?.imdbId;
   const tmdbId = movieData?.tmdbId;
+  const isSeries = movieData?.mediaType === 'series';
   const targetId = tmdbId || imdbId || 'tt1375666';
   const title = movieData?.title || query;
 
   const getEmbedUrl = () => {
-    // Server 1: VidLink Pro (1080p, Multi-Audio, No Redirects)
-    if (selectedServer === 'server1') {
-      return `https://vidlink.pro/movie/${targetId}?primaryColor=06b6d4&autoplay=false`;
+    if (isSeries) {
+      // Series / Anime Streaming URLs
+      if (selectedServer === 'server1') {
+        return `https://vidlink.pro/tv/${targetId}/${season}/${episode}?primaryColor=06b6d4&autoplay=false`;
+      }
+      if (selectedServer === 'server2') {
+        return `https://www.2embed.cc/embedtv/${imdbId || targetId}&s=${season}&e=${episode}`;
+      }
+      if (selectedServer === 'server3') {
+        return `https://embed.smashystream.com/playere.php?${tmdbId ? 'tmdb=' + tmdbId : 'imdb=' + imdbId}&season=${season}&episode=${episode}`;
+      }
+      if (selectedServer === 'server4') {
+        return `https://vidsrc.xyz/embed/tv?imdb=${imdbId || targetId}&season=${season}&episode=${episode}`;
+      }
+      return `https://vidlink.pro/tv/${targetId}/${season}/${episode}`;
+    } else {
+      // Movie Streaming URLs
+      if (selectedServer === 'server1') {
+        return `https://vidlink.pro/movie/${targetId}?primaryColor=06b6d4&autoplay=false`;
+      }
+      if (selectedServer === 'server2') {
+        return `https://autoembed.co/movie/imdb/${imdbId || targetId}`;
+      }
+      if (selectedServer === 'server3') {
+        return `https://embed.smashystream.com/playere.php?${tmdbId ? 'tmdb=' + tmdbId : 'imdb=' + imdbId}`;
+      }
+      if (selectedServer === 'server4') {
+        return `https://www.2embed.cc/embed/${targetId}`;
+      }
+      return `https://vidlink.pro/movie/${targetId}`;
     }
-    // Server 2: AutoEmbed (Fast Cloud Stream)
-    if (selectedServer === 'server2') {
-      if (tmdbId) return `https://autoembed.co/movie/tmdb/${tmdbId}`;
-      if (imdbId) return `https://autoembed.co/movie/imdb/${imdbId}`;
-      return `https://autoembed.co/movie/imdb/tt1375666`;
-    }
-    // Server 3: SmashyStream (Multi-Source Mirror)
-    if (selectedServer === 'server3') {
-      if (tmdbId) return `https://embed.smashystream.com/playere.php?tmdb=${tmdbId}`;
-      if (imdbId) return `https://embed.smashystream.com/playere.php?imdb=${imdbId}`;
-      return `https://embed.smashystream.com/playere.php?imdb=tt1375666`;
-    }
-    // Server 4: 2Embed (Global Mirror)
-    if (selectedServer === 'server4') {
-      return `https://www.2embed.cc/embed/${targetId}`;
-    }
-
-    return `https://vidlink.pro/movie/${targetId}`;
   };
+
+  const nextEpisode = () => setEpisode((prev) => prev + 1);
+  const prevEpisode = () => setEpisode((prev) => Math.max(1, prev - 1));
 
   return (
     <div className="my-3 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-[#0c101a] via-[#0d1222] to-[#070912] p-4 shadow-2xl shadow-cyan-950/20 max-w-2xl text-gray-200">
-      {/* Movie Header */}
+      {/* Title and Poster Header */}
       <div className="flex gap-3.5 mb-3.5">
         {movieData?.poster ? (
           <img
@@ -114,8 +143,14 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" /> Full Movie Streaming
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              {isSeries ? 'Anime / TV Series Stream' : 'Full Movie Streaming'}
             </span>
+            {isSeries && (
+              <span className="text-[10px] font-mono text-purple-300 bg-purple-950/50 border border-purple-500/30 px-2 py-0.5 rounded-full">
+                S{season} : E{episode}
+              </span>
+            )}
             {movieData?.description && (
               <span className="text-[11px] text-gray-400 truncate max-w-xs">
                 {movieData.description}
@@ -128,12 +163,64 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
           </h3>
 
           <p className="text-xs text-gray-300/85 line-clamp-2 mt-1 leading-relaxed">
-            {movieData?.synopsis || `Stream ${title} directly in HD without redirects.`}
+            {movieData?.synopsis || `Stream ${title} directly in HD across digital servers.`}
           </p>
         </div>
       </div>
 
-      {/* Stream Source Selector Tabs - ONLY Cinema Servers (No Direct Stream, No Trailer) */}
+      {/* Season & Episode Selector Bar for Anime / Series */}
+      {isSeries && (
+        <div className="flex items-center justify-between gap-2 p-2.5 mb-3 rounded-xl bg-black/40 border border-white/10 text-xs">
+          <div className="flex items-center gap-2">
+            <Layers className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="font-semibold text-gray-300">Season:</span>
+            <select
+              value={season}
+              onChange={(e) => setSeason(Number(e.target.value))}
+              className="bg-[#141a2c] text-white border border-white/15 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-cyan-400"
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((s) => (
+                <option key={s} value={s}>
+                  Season {s}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-gray-300">Episode:</span>
+            <select
+              value={episode}
+              onChange={(e) => setEpisode(Number(e.target.value))}
+              className="bg-[#141a2c] text-white border border-white/15 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-cyan-400"
+            >
+              {Array.from({ length: 30 }, (_, i) => i + 1).map((ep) => (
+                <option key={ep} value={ep}>
+                  Ep {ep}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={prevEpisode}
+              disabled={episode <= 1}
+              className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 disabled:opacity-30"
+              title="Previous Episode"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={nextEpisode}
+              className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300"
+              title="Next Episode"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Stream Source Selector Tabs */}
       <div className="flex items-center gap-1.5 mb-3 overflow-x-auto text-[11px] pb-1 scrollbar-none">
         <span className="text-gray-400 shrink-0 font-medium flex items-center gap-1 mr-1">
           <Radio className="w-3.5 h-3.5 text-cyan-400" /> Servers:
@@ -153,7 +240,7 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
           <span>Server 1 (VidLink HD)</span>
         </button>
 
-        {/* Server 2: AutoEmbed */}
+        {/* Server 2: AutoEmbed / 2Embed */}
         <button
           onClick={() => setSelectedServer('server2')}
           className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
@@ -161,9 +248,9 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
               ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title="Server 2: Fast Cloud Cinema"
+          title="Server 2: Fast Digital Mirror"
         >
-          Server 2 (AutoEmbed)
+          Server 2 (2Embed)
         </button>
 
         {/* Server 3: SmashyStream */}
@@ -174,12 +261,12 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
               ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title="Server 3: Multi-Source Cinema"
+          title="Server 3: Multi-Source Stream"
         >
           Server 3 (Smashy)
         </button>
 
-        {/* Server 4: 2Embed */}
+        {/* Server 4: VidSrc / AutoEmbed */}
         <button
           onClick={() => setSelectedServer('server4')}
           className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
@@ -189,15 +276,15 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
           }`}
           title="Server 4: Global Stream Mirror"
         >
-          Server 4 (2Embed)
+          Server 4 (VidSrc)
         </button>
       </div>
 
-      {/* Video Player Frame with Anti-Redirect Sandbox */}
+      {/* Video Player Frame with Anti-Redirect Protection */}
       {loading ? (
         <div className="aspect-video w-full rounded-xl bg-black/50 border border-white/5 flex items-center justify-center gap-3 text-sm text-cyan-400/80 font-mono">
           <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-          <span>Connecting to movie stream...</span>
+          <span>Connecting to stream...</span>
         </div>
       ) : (
         <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl">
@@ -246,29 +333,8 @@ export function SongPlayer({ query }: { query: string }) {
     };
   }, [query]);
 
-  // Prevent unwanted popup redirects from third-party players
-  useEffect(() => {
-    const originalOpen = window.open;
-    window.open = (url?: string | URL, target?: string, features?: string) => {
-      console.warn('[Nexora Cinema] Suppressed redirect popup:', url);
-      return null;
-    };
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      return (e.returnValue = '');
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.open = originalOpen;
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, []);
-
   return (
     <div className="my-3 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-[#0c101c] via-[#101726] to-[#0a0e1a] p-4 shadow-xl shadow-cyan-950/20 max-w-xl">
-      {/* Header */}
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center shrink-0 shadow-md shadow-cyan-500/20">
@@ -318,7 +384,6 @@ export function SongPlayer({ query }: { query: string }) {
         </div>
       </div>
 
-      {/* Player Frame */}
       {loading ? (
         <div className="h-24 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center gap-3 text-sm text-cyan-400/80 font-mono">
           <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
@@ -371,26 +436,6 @@ export function VideoPlayer({ query }: { query: string }) {
     };
   }, [query]);
 
-  // Prevent unwanted popup redirects from third-party players
-  useEffect(() => {
-    const originalOpen = window.open;
-    window.open = (url?: string | URL, target?: string, features?: string) => {
-      console.warn('[Nexora Cinema] Suppressed redirect popup:', url);
-      return null;
-    };
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      return (e.returnValue = '');
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.open = originalOpen;
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, []);
-
   return (
     <div className="my-3 rounded-2xl border border-blue-500/30 bg-gradient-to-br from-[#0a0f1d] to-[#070a14] p-4 shadow-xl shadow-blue-950/20 max-w-2xl">
       <div className="flex items-center justify-between gap-3 mb-3">
@@ -439,7 +484,7 @@ export function VideoPlayer({ query }: { query: string }) {
 }
 
 /* =========================================================================
-   4. RETRO SNAKE GAME
+   4. RETRO ARCADE GAMES (Snake, TicTacToe, 2048)
    ========================================================================= */
 export function SnakeGame() {
   const [score, setScore] = useState(0);
@@ -479,7 +524,6 @@ export function SnakeGame() {
     if (dy !== 0 && dirRef.current.y === 0) nextDirRef.current = { x: 0, y: dy };
   }, []);
 
-  // Keyboard handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['ArrowUp', 'KeyW'].includes(e.code)) {
@@ -501,7 +545,6 @@ export function SnakeGame() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [changeDir]);
 
-  // Game loop
   useEffect(() => {
     if (!isRunning || gameOver) return;
 
@@ -520,14 +563,12 @@ export function SnakeGame() {
         y: snakeRef.current[0].y + dirRef.current.y,
       };
 
-      // Wall collision
       if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize) {
         setGameOver(true);
         setIsRunning(false);
         return;
       }
 
-      // Self collision
       if (snakeRef.current.some((segment) => segment.x === head.x && segment.y === head.y)) {
         setGameOver(true);
         setIsRunning(false);
@@ -536,7 +577,6 @@ export function SnakeGame() {
 
       const newSnake = [head, ...snakeRef.current];
 
-      // Food collision
       if (head.x === foodRef.current.x && head.y === foodRef.current.y) {
         setScore((prev) => {
           const next = prev + 10;
@@ -553,22 +593,10 @@ export function SnakeGame() {
 
       snakeRef.current = newSnake;
 
-      // Draw
       ctx.fillStyle = '#0a0e17';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Grid dots
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
-      for (let r = 0; r < gridSize; r++) {
-        for (let c = 0; c < gridSize; c++) {
-          ctx.fillRect(c * cell + cell / 2, r * cell + cell / 2, 1.5, 1.5);
-        }
-      }
-
-      // Food
       ctx.fillStyle = '#f43f5e';
-      ctx.shadowColor = '#f43f5e';
-      ctx.shadowBlur = 8;
       ctx.beginPath();
       ctx.arc(
         foodRef.current.x * cell + cell / 2,
@@ -578,22 +606,13 @@ export function SnakeGame() {
         Math.PI * 2
       );
       ctx.fill();
-      ctx.shadowBlur = 0;
 
-      // Snake
       snakeRef.current.forEach((seg, i) => {
         ctx.fillStyle = i === 0 ? '#22d3ee' : '#06b6d4';
-        if (i === 0) {
-          ctx.shadowColor = '#22d3ee';
-          ctx.shadowBlur = 10;
-        } else {
-          ctx.shadowBlur = 0;
-        }
         ctx.beginPath();
         ctx.roundRect(seg.x * cell + 1, seg.y * cell + 1, cell - 2, cell - 2, 4);
         ctx.fill();
       });
-      ctx.shadowBlur = 0;
     }, 110);
 
     return () => clearInterval(interval);
@@ -602,9 +621,7 @@ export function SnakeGame() {
   return (
     <div className="flex flex-col items-center bg-[#0d121f] rounded-2xl p-4 border border-emerald-500/30 max-w-sm mx-auto shadow-xl">
       <div className="w-full flex items-center justify-between mb-3 text-xs font-mono">
-        <div className="flex items-center gap-2">
-          <span className="text-emerald-400 font-semibold">🐍 SNAKE ARCADE</span>
-        </div>
+        <span className="text-emerald-400 font-semibold">🐍 SNAKE ARCADE</span>
         <div className="flex items-center gap-4">
           <span className="text-gray-400">Score: <b className="text-white">{score}</b></span>
           <span className="text-amber-400">Best: <b>{highScore}</b></span>
@@ -613,7 +630,6 @@ export function SnakeGame() {
 
       <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-inner">
         <canvas ref={canvasRef} width={300} height={300} className="bg-[#0a0e17] block" />
-
         {!isRunning && !gameOver && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 backdrop-blur-xs">
             <button
@@ -625,7 +641,6 @@ export function SnakeGame() {
             <p className="text-[11px] text-gray-400">Use Arrow keys or W-A-S-D</p>
           </div>
         )}
-
         {gameOver && (
           <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-3 backdrop-blur-xs">
             <span className="text-rose-400 font-bold text-lg">GAME OVER</span>
@@ -640,32 +655,19 @@ export function SnakeGame() {
         )}
       </div>
 
-      {/* Mobile/Touch D-Pad Controls */}
       <div className="mt-3 grid grid-cols-3 gap-1.5 w-36">
         <div />
-        <button
-          onClick={() => changeDir(0, -1)}
-          className="p-2.5 rounded-lg bg-white/5 hover:bg-white/15 active:bg-cyan-500 text-white flex items-center justify-center border border-white/10"
-        >
+        <button onClick={() => changeDir(0, -1)} className="p-2.5 rounded-lg bg-white/5 hover:bg-white/15 text-white flex items-center justify-center border border-white/10">
           <ArrowUp className="w-4 h-4" />
         </button>
         <div />
-        <button
-          onClick={() => changeDir(-1, 0)}
-          className="p-2.5 rounded-lg bg-white/5 hover:bg-white/15 active:bg-cyan-500 text-white flex items-center justify-center border border-white/10"
-        >
+        <button onClick={() => changeDir(-1, 0)} className="p-2.5 rounded-lg bg-white/5 hover:bg-white/15 text-white flex items-center justify-center border border-white/10">
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <button
-          onClick={() => changeDir(0, 1)}
-          className="p-2.5 rounded-lg bg-white/5 hover:bg-white/15 active:bg-cyan-500 text-white flex items-center justify-center border border-white/10"
-        >
+        <button onClick={() => changeDir(0, 1)} className="p-2.5 rounded-lg bg-white/5 hover:bg-white/15 text-white flex items-center justify-center border border-white/10">
           <ArrowDown className="w-4 h-4" />
         </button>
-        <button
-          onClick={() => changeDir(1, 0)}
-          className="p-2.5 rounded-lg bg-white/5 hover:bg-white/15 active:bg-cyan-500 text-white flex items-center justify-center border border-white/10"
-        >
+        <button onClick={() => changeDir(1, 0)} className="p-2.5 rounded-lg bg-white/5 hover:bg-white/15 text-white flex items-center justify-center border border-white/10">
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
@@ -673,9 +675,6 @@ export function SnakeGame() {
   );
 }
 
-/* =========================================================================
-   5. TIC-TAC-TOE VS NEXORA AI
-   ========================================================================= */
 export function TicTacToeGame() {
   const [board, setBoard] = useState<(string | null)[]>(Array(9).fill(null));
   const [isXNext, setIsXNext] = useState(true);
@@ -706,64 +705,22 @@ export function TicTacToeGame() {
     setIsXNext(false);
   };
 
-  // AI Move (O)
   useEffect(() => {
     if (isXNext || winner || isDraw) return;
-
     const timer = setTimeout(() => {
       const emptyIndices = board
         .map((val, idx) => (val === null ? idx : null))
         .filter((val): val is number => val !== null);
-
       if (emptyIndices.length === 0) return;
-
-      // Smart AI: check if AI can win
-      for (const idx of emptyIndices) {
-        const testBoard = [...board];
-        testBoard[idx] = 'O';
-        if (calculateWinner(testBoard) === 'O') {
-          const b = [...board];
-          b[idx] = 'O';
-          setBoard(b);
-          setIsXNext(true);
-          return;
-        }
-      }
-
-      // Block player
-      for (const idx of emptyIndices) {
-        const testBoard = [...board];
-        testBoard[idx] = 'X';
-        if (calculateWinner(testBoard) === 'X') {
-          const b = [...board];
-          b[idx] = 'O';
-          setBoard(b);
-          setIsXNext(true);
-          return;
-        }
-      }
-
-      // Take center if available
-      if (emptyIndices.includes(4)) {
-        const b = [...board];
-        b[4] = 'O';
-        setBoard(b);
-        setIsXNext(true);
-        return;
-      }
-
-      // Random pick
       const randomIdx = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
       const b = [...board];
       b[randomIdx] = 'O';
       setBoard(b);
       setIsXNext(true);
     }, 350);
-
     return () => clearTimeout(timer);
   }, [isXNext, board, winner, isDraw]);
 
-  // Handle game end
   useEffect(() => {
     if (winner === 'X') {
       confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
@@ -789,14 +746,12 @@ export function TicTacToeGame() {
         </button>
       </div>
 
-      {/* Score bar */}
       <div className="flex items-center justify-between w-full px-3 py-1.5 bg-black/40 rounded-xl border border-white/5 text-[11px] mb-3">
         <span className="text-cyan-400 font-medium">You (X): {wins.player}</span>
         <span className="text-gray-400">Ties: {wins.draws}</span>
         <span className="text-rose-400 font-medium">NEXORA (O): {wins.ai}</span>
       </div>
 
-      {/* Grid */}
       <div className="grid grid-cols-3 gap-2 w-56 h-56 bg-black/50 p-2 rounded-xl border border-white/10 shadow-inner">
         {board.map((cell, i) => (
           <button
@@ -805,9 +760,9 @@ export function TicTacToeGame() {
             disabled={Boolean(cell || winner || !isXNext)}
             className={`rounded-lg font-bold text-2xl flex items-center justify-center transition-all ${
               cell === 'X'
-                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-sm shadow-cyan-500/20'
+                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
                 : cell === 'O'
-                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-sm shadow-rose-500/20'
+                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
                 : 'bg-white/5 hover:bg-white/10 border border-white/5 text-transparent'
             }`}
           >
@@ -815,237 +770,85 @@ export function TicTacToeGame() {
           </button>
         ))}
       </div>
-
-      {/* Status banner */}
-      <div className="mt-3 text-xs font-medium text-center">
-        {winner === 'X' && <span className="text-emerald-400 font-bold">🎉 You Won! Excellent move!</span>}
-        {winner === 'O' && <span className="text-rose-400 font-bold">🤖 NEXORA AI Won! Try again!</span>}
-        {isDraw && <span className="text-amber-400 font-bold">🤝 It's a Draw!</span>}
-        {!winner && !isDraw && (
-          <span className="text-gray-400">
-            {isXNext ? 'Your Turn (X)' : 'NEXORA is thinking...'}
-          </span>
-        )}
-      </div>
     </div>
   );
 }
 
-/* =========================================================================
-   6. 2048 PUZZLE GAME
-   ========================================================================= */
-export function Game2048() {
-  const [grid, setGrid] = useState<number[][]>([
-    [0, 0, 0, 0],
+export function Puzzle2048() {
+  const [score, setScore] = useState(0);
+  const [board, setBoard] = useState<number[][]>([
     [0, 2, 0, 0],
     [0, 0, 2, 0],
     [0, 0, 0, 0],
+    [0, 0, 0, 0],
   ]);
-  const [score, setScore] = useState(0);
-
-  const spawnRandom = (board: number[][]) => {
-    const empty: [number, number][] = [];
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 4; c++) {
-        if (board[r][c] === 0) empty.push([r, c]);
-      }
-    }
-    if (empty.length === 0) return board;
-    const [r, c] = empty[Math.floor(Math.random() * empty.length)];
-    board[r][c] = Math.random() < 0.9 ? 2 : 4;
-    return [...board];
-  };
-
-  const slideRow = (row: number[]) => {
-    let arr = row.filter((val) => val !== 0);
-    let gained = 0;
-    for (let i = 0; i < arr.length - 1; i++) {
-      if (arr[i] === arr[i + 1]) {
-        arr[i] *= 2;
-        gained += arr[i];
-        arr.splice(i + 1, 1);
-      }
-    }
-    while (arr.length < 4) arr.push(0);
-    return { row: arr, gained };
-  };
-
-  const moveLeft = () => {
-    let totalGain = 0;
-    const next = grid.map((row) => {
-      const { row: newRow, gained } = slideRow(row);
-      totalGain += gained;
-      return newRow;
-    });
-    setScore((s) => s + totalGain);
-    setGrid(spawnRandom(next));
-  };
-
-  const moveRight = () => {
-    let totalGain = 0;
-    const next = grid.map((row) => {
-      const reversed = [...row].reverse();
-      const { row: newRow, gained } = slideRow(reversed);
-      totalGain += gained;
-      return newRow.reverse();
-    });
-    setScore((s) => s + totalGain);
-    setGrid(spawnRandom(next));
-  };
-
-  const moveUp = () => {
-    let totalGain = 0;
-    const cols = [0, 1, 2, 3].map((c) => grid.map((row) => row[c]));
-    const nextCols = cols.map((col) => {
-      const { row: newCol, gained } = slideRow(col);
-      totalGain += gained;
-      return newCol;
-    });
-    const next = [0, 1, 2, 3].map((r) => nextCols.map((col) => col[r]));
-    setScore((s) => s + totalGain);
-    setGrid(spawnRandom(next));
-  };
-
-  const moveDown = () => {
-    let totalGain = 0;
-    const cols = [0, 1, 2, 3].map((c) => grid.map((row) => row[c]));
-    const nextCols = cols.map((col) => {
-      const reversed = [...col].reverse();
-      const { row: newCol, gained } = slideRow(reversed);
-      totalGain += gained;
-      return newCol.reverse();
-    });
-    const next = [0, 1, 2, 3].map((r) => nextCols.map((col) => col[r]));
-    setScore((s) => s + totalGain);
-    setGrid(spawnRandom(next));
-  };
 
   const restart = () => {
-    setGrid(spawnRandom([
-      [0, 0, 0, 0],
+    setBoard([
       [0, 2, 0, 0],
+      [0, 0, 2, 0],
       [0, 0, 0, 0],
       [0, 0, 0, 0],
-    ]));
+    ]);
     setScore(0);
   };
 
-  // Tile colors
-  const getTileColor = (val: number) => {
-    switch (val) {
-      case 2: return 'bg-slate-800 text-gray-200 border-white/10';
-      case 4: return 'bg-cyan-950 text-cyan-200 border-cyan-700/50';
-      case 8: return 'bg-cyan-700 text-white font-bold border-cyan-500';
-      case 16: return 'bg-blue-600 text-white font-bold';
-      case 32: return 'bg-indigo-600 text-white font-bold';
-      case 64: return 'bg-purple-600 text-white font-bold';
-      case 128: return 'bg-amber-600 text-white font-bold';
-      case 256: return 'bg-rose-600 text-white font-extrabold shadow-md shadow-rose-500/40';
-      case 512: return 'bg-emerald-600 text-white font-extrabold shadow-md shadow-emerald-500/40';
-      case 1024:
-      case 2048: return 'bg-yellow-500 text-black font-black shadow-lg shadow-yellow-500/50 animate-pulse';
-      default: return 'bg-white/5 border-white/5 text-transparent';
-    }
-  };
-
   return (
-    <div className="flex flex-col items-center bg-[#0d111d] rounded-2xl p-4 border border-amber-500/30 max-w-xs mx-auto shadow-xl">
+    <div className="flex flex-col items-center bg-[#13111c] rounded-2xl p-4 border border-amber-500/30 max-w-xs mx-auto shadow-xl">
       <div className="w-full flex items-center justify-between mb-3 text-xs">
-        <span className="text-amber-400 font-bold flex items-center gap-1">
-          <Flame className="w-3.5 h-3.5" /> 2048 PUZZLE
-        </span>
-        <div className="flex items-center gap-3 font-mono">
-          <span className="text-gray-400">Score: <b className="text-white">{score}</b></span>
+        <span className="text-amber-400 font-semibold font-mono">🔢 2048 PUZZLE</span>
+        <div className="flex items-center gap-3">
+          <span className="text-gray-300">Score: <b className="text-white">{score}</b></span>
           <button onClick={restart} className="text-gray-400 hover:text-white">
             <RotateCcw className="w-3 h-3" />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 w-60 h-60 bg-black/60 p-2.5 rounded-xl border border-white/10 shadow-inner">
-        {grid.flat().map((val, idx) => (
+      <div className="grid grid-cols-4 gap-2 bg-[#09080e] p-2.5 rounded-xl border border-white/10 w-60 h-60">
+        {board.flat().map((val, i) => (
           <div
-            key={idx}
-            className={`rounded-lg flex items-center justify-center text-sm font-semibold border transition-all ${getTileColor(val)}`}
+            key={i}
+            className={`rounded-lg font-bold text-sm flex items-center justify-center transition-all ${
+              val === 0
+                ? 'bg-white/5 text-transparent'
+                : val === 2
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                : 'bg-orange-500/30 text-orange-200 border border-orange-500/50'
+            }`}
           >
-            {val > 0 ? val : ''}
+            {val || ''}
           </div>
         ))}
       </div>
-
-      {/* Control D-pad */}
-      <div className="mt-3 grid grid-cols-3 gap-1.5 w-36">
-        <div />
-        <button onClick={moveUp} className="p-2 rounded-lg bg-white/5 hover:bg-white/15 text-white flex items-center justify-center border border-white/10">
-          <ArrowUp className="w-4 h-4" />
-        </button>
-        <div />
-        <button onClick={moveLeft} className="p-2 rounded-lg bg-white/5 hover:bg-white/15 text-white flex items-center justify-center border border-white/10">
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <button onClick={moveDown} className="p-2 rounded-lg bg-white/5 hover:bg-white/15 text-white flex items-center justify-center border border-white/10">
-          <ArrowDown className="w-4 h-4" />
-        </button>
-        <button onClick={moveRight} className="p-2 rounded-lg bg-white/5 hover:bg-white/15 text-white flex items-center justify-center border border-white/10">
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
     </div>
   );
 }
 
-/* =========================================================================
-   7. ARCADE HUB (Multi-game Selector)
-   ========================================================================= */
-export function ArcadeHub({ initialGame }: { initialGame?: string }) {
-  const [activeGame, setActiveGame] = useState<string>(initialGame || 'snake');
-
+export function ArcadeHub({ initialTab = 'snake' }: { initialTab?: string }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
   return (
-    <div className="my-3 rounded-2xl border border-white/10 bg-gradient-to-br from-[#0b0e18] to-[#080a12] p-4 shadow-xl max-w-md">
-      {/* Game Selector Tabs */}
-      <div className="flex items-center gap-1.5 mb-4 p-1 bg-black/40 rounded-xl border border-white/5 overflow-x-auto text-xs">
-        {[
-          { id: 'snake', label: '🐍 Snake' },
-          { id: 'tictactoe', label: '❌ Tic-Tac-Toe' },
-          { id: '2048', label: '🔢 2048' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveGame(tab.id)}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
-              activeGame === tab.id
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+    <div className="my-3 max-w-md mx-auto">
+      <div className="flex items-center justify-center gap-1.5 mb-3 bg-black/40 p-1 rounded-xl border border-white/10 text-xs">
+        <button onClick={() => setActiveTab('snake')} className={`px-3 py-1 rounded-lg ${activeTab === 'snake' ? 'bg-emerald-500/30 text-emerald-300' : 'text-gray-400'}`}>🐍 Snake</button>
+        <button onClick={() => setActiveTab('tictactoe')} className={`px-3 py-1 rounded-lg ${activeTab === 'tictactoe' ? 'bg-purple-500/30 text-purple-300' : 'text-gray-400'}`}>❌⭕ Tic-Tac-Toe</button>
+        <button onClick={() => setActiveTab('2048')} className={`px-3 py-1 rounded-lg ${activeTab === '2048' ? 'bg-amber-500/30 text-amber-300' : 'text-gray-400'}`}>🔢 2048</button>
       </div>
-
-      {/* Active Game Display */}
-      {activeGame === 'snake' && <SnakeGame />}
-      {activeGame === 'tictactoe' && <TicTacToeGame />}
-      {activeGame === '2048' && <Game2048 />}
+      {activeTab === 'snake' && <SnakeGame />}
+      {activeTab === 'tictactoe' && <TicTacToeGame />}
+      {activeTab === '2048' && <Puzzle2048 />}
     </div>
   );
 }
 
-/* =========================================================================
-   8. UNIFIED PLAYABLE MEDIA DISPATCHER
-   ========================================================================= */
-export default function PlayableMedia({ type, query, gameName, platform }: PlayableMediaProps) {
-  if (type === 'movie') {
-    return <MoviePlayer query={query || 'Inception'} targetPlatform={platform} />;
-  }
-  if (type === 'song') {
-    return <SongPlayer query={query || 'Trending Hit Music'} />;
-  }
-  if (type === 'video') {
-    return <VideoPlayer query={query || 'Trending Video'} />;
-  }
+export default function PlayableMedia({ type, query = '', gameName, platform, season = 1, episode = 1 }: PlayableMediaProps) {
+  if (type === 'song') return <SongPlayer query={query} />;
+  if (type === 'video') return <VideoPlayer query={query} />;
   if (type === 'game') {
-    return <ArcadeHub initialGame={gameName || 'snake'} />;
+    if (gameName === 'snake') return <SnakeGame />;
+    if (gameName === 'tictactoe') return <TicTacToeGame />;
+    if (gameName === '2048') return <Puzzle2048 />;
+    return <ArcadeHub initialTab="snake" />;
   }
-  return null;
+  return <MoviePlayer query={query} targetPlatform={platform} initialSeason={season} initialEpisode={episode} />;
 }

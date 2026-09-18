@@ -24,6 +24,16 @@ function extractPlayableMedia(content: string, userPrompt?: string) {
   if (!content && !userPrompt) return null;
 
   // 1. Explicit tags from assistant
+  const seriesTag = content.match(/:::series\{query="([^"]+)"(?:,\s*season="(\d+)")?(?:,\s*episode="(\d+)")?\}:::/);
+  if (seriesTag) {
+    return {
+      type: 'series' as const,
+      query: seriesTag[1],
+      season: seriesTag[2] ? parseInt(seriesTag[2], 10) : 1,
+      episode: seriesTag[3] ? parseInt(seriesTag[3], 10) : 1,
+    };
+  }
+
   const movieTag = content.match(/:::movie\{query="([^"]+)"(?:,\s*platform="([^"]+)")?\}:::/);
   if (movieTag) return { type: 'movie' as const, query: movieTag[1], platform: (movieTag[2] as any) || 'all' };
 
@@ -43,6 +53,30 @@ function extractPlayableMedia(content: string, userPrompt?: string) {
     if (/play\s+snake/i.test(p)) return { type: 'game' as const, gameName: 'snake' as const };
     if (/play\s+(?:tic[\s-]?tac[\s-]?toe|tictactoe)/i.test(p)) return { type: 'game' as const, gameName: 'tictactoe' as const };
     if (/play\s+2048/i.test(p)) return { type: 'game' as const, gameName: '2048' as const };
+
+    // Anime and TV / Web Series (e.g. "play attack on titan", "play stranger things season 2 episode 3", "play naruto anime", "watch wednesday")
+    const isSeriesOrAnime = /\b(?:anime|series|season|episode|show|drama|k-drama|kdrama|tv\s*series|web\s*series)\b/i.test(p);
+    const knownAnimeOrSeries = /\b(?:attack\s+on\s+titan|naruto|one\s+piece|jujutsu\s+kaisen|demon\s+slayer|solo\s+leveling|bleach|dragon\s+ball|death\s+note|stranger\s+things|breaking\s+bad|game\s+of\s+thrones|wednesday|the\s+boys|loki|dark|money\s+heist|mirzapur|squid\s+game|the\s+last\s+of\s+us|peaky\s+blinders|suits|better\s+call\s+saul|house\s+of\s+cards|dexter|friends)\b/i.test(p);
+
+    if (isSeriesOrAnime || knownAnimeOrSeries) {
+      const sMatch = p.match(/(?:season|s)\s*(\d+)/i);
+      const eMatch = p.match(/(?:episode|ep)\s*(\d+)/i);
+      const cleanQ = p
+        .replace(/^(?:play|watch|stream|show)\s+(?:the\s+)?/i, '')
+        .replace(/\s+(?:season|s)\s*\d+/i, '')
+        .replace(/\s+(?:episode|ep)\s*\d+/i, '')
+        .replace(/\b(?:on|in|from)\s+(?:netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|crunchyroll|apple(?:\s*tv)?)\b/i, '')
+        .replace(/\b(?:anime|series|show|tv\s*series|web\s*series)\b/i, '')
+        .trim();
+      if (cleanQ) {
+        return {
+          type: 'series' as const,
+          query: cleanQ,
+          season: sMatch ? parseInt(sMatch[1], 10) : 1,
+          episode: eMatch ? parseInt(eMatch[1], 10) : 1,
+        };
+      }
+    }
 
     // Movies (e.g. "play Inception", "watch Inception on Netflix", "play movie Pushpa", "stream Oppenheimer")
     const platformMatch = p.match(/\b(?:on|in|from)\s+(netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|apple(?:\s*tv)?)\b/i);
@@ -226,12 +260,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const suggestions = [
-    '🍿 Play Inception on Netflix',
-    '🎬 Play Pushpa 2 on Prime Video',
+    '🎌 Play Attack on Titan Anime',
+    '📺 Play Stranger Things Season 1',
+    '🍿 Play Inception Movie',
+    '🎬 Play Pushpa 2',
     '🎵 Play Shape of You by Ed Sheeran',
     '🐍 Play Retro Snake Game',
-    '❌⭕ Play Tic-Tac-Toe vs NEXORA AI',
-    '🔢 Play 2048 Puzzle Game',
   ];
 
   return (
@@ -279,7 +313,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
               : '';
             const mediaItem = !isUser ? extractPlayableMedia(msg.content, prevUserMsg) : null;
             const cleanDisplayContent = msg.content
-              ? msg.content.replace(/:::(song|video|game|movie)\{[^}]+\}:::/g, '').trim()
+              ? msg.content.replace(/:::(song|video|game|movie|series)\{[^}]+\}:::/g, '').trim()
               : '';
 
             return (
@@ -335,7 +369,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     ) : (
                       <>
-                        {/* Interactive Playable Media (Songs, Videos, Games, Movies) */}
+                        {/* Interactive Playable Media (Songs, Videos, Games, Movies, Anime & Series) */}
                         {mediaItem && (
                           <div className="mb-3">
                             <PlayableMedia
@@ -343,6 +377,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
                               query={mediaItem.query}
                               gameName={mediaItem.gameName}
                               platform={mediaItem.platform}
+                              season={(mediaItem as any).season}
+                              episode={(mediaItem as any).episode}
                             />
                           </div>
                         )}

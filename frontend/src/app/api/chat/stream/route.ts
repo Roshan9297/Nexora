@@ -1,6 +1,38 @@
 import { NextRequest } from 'next/server';
+import { generateOfflineResponse } from '@/lib/offline-intelligence';
 
 export const runtime = 'nodejs';
+
+function streamOfflineTokens(userMsg: string, reasoningMode: boolean, messages: any[]): Response {
+  const offlineResult = generateOfflineResponse(userMsg, reasoningMode, messages);
+  const encoder = new TextEncoder();
+  let fullText = '';
+  if (offlineResult.thought) {
+    fullText += `<thought>\n${offlineResult.thought}\n</thought>\n\n`;
+  }
+  fullText += offlineResult.content;
+
+  const chunks = fullText.match(/.{1,4}|\n/g) || [fullText];
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: chunk })}\n\n`));
+        await new Promise((resolve) => setTimeout(resolve, 8));
+      }
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+    },
+  });
+}
 
 /**
  * Fast zero-key factual grounding: fetches verified entity & topical data
@@ -79,21 +111,27 @@ async function getFactualGrounding(userQuery: string): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
+  let lastUserMsg = '';
+  let reasoning_mode = false;
+  let formattedMessages: any[] = [];
+
   try {
     const body = await req.json();
-    const { messages, reasoning_mode, temperature } = body;
+    reasoning_mode = Boolean(body.reasoning_mode);
+    const { messages, temperature } = body;
 
-    let formattedMessages = Array.isArray(messages) ? [...messages] : [];
+    formattedMessages = Array.isArray(messages) ? [...messages] : [];
 
     // Find the last user message to provide factual grounding
-    const lastUserMsg = [...formattedMessages].reverse().find((m) => m.role === 'user')?.content || '';
+    lastUserMsg = [...formattedMessages].reverse().find((m) => m.role === 'user')?.content || '';
     const groundTruth = await getFactualGrounding(lastUserMsg);
 
     let systemPrompt =
       'You are NEXORA AI, an ultra-intelligent, fast, accurate, and helpful AI assistant created for unrestricted intelligence.\n' +
       'Answer clearly, authoritatively, and smoothly with correct formatting (markdown, tables, lists, and code blocks where suitable).\n' +
       '\n--- MULTIMEDIA, MOVIES & GAMING CAPABILITIES ---\n' +
-      'You have built-in interactive media players, a Digital Cinema Hub (supporting Netflix, Prime Video, Disney+ Hotstar, JioCinema, Apple TV, and free streaming), and game engines directly in the chat!\n' +
+      'You have built-in interactive media players, a Digital Cinema Hub (supporting Netflix, Prime Video, Disney+ Hotstar, JioCinema, Apple TV, Crunchyroll, and free streaming), and game engines directly in the chat!\n' +
+      '- If the user asks to play, watch, or stream an anime or TV/web series (e.g. Attack on Titan, Naruto, One Piece, Stranger Things, Solo Leveling, Breaking Bad), include: :::series{query="Series or Anime Title", season="1", episode="1"}:::\n' +
       '- If the user asks to play, watch, or stream a movie or film (e.g. Inception, Pushpa, RRR, Interstellar, Avatar) or specifies a platform like Netflix/Prime/Hotstar, include: :::movie{query="Movie Title", platform="netflix|prime|hotstar|all"}:::\n' +
       '- If the user asks to play or listen to a song or music, include: :::song{query="Song Title and Artist"}:::\n' +
       '- If the user asks to play or watch a video or trailer, include: :::video{query="Video or Trailer Title"}:::\n' +
@@ -128,37 +166,48 @@ export async function POST(req: NextRequest) {
       stream: true,
     };
 
-    const upstreamRes = await fetch('https://text.pollinations.ai/openai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    let upstreamRes: Response | null = null;
+    try {
+      upstreamRes = await fetch('https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(6000),
+      });
+    } catch {
+      upstreamRes = null;
+    }
 
     const encoder = new TextEncoder();
 
-    if (!upstreamRes.ok || !upstreamRes.body) {
-      // Fallback: direct GET endpoint for zero-key resilience
-      const fullPrompt = formattedMessages.map((m) => `${m.role}: ${m.content}`).join('\n\n');
-      const getRes = await fetch(
-        `https://text.pollinations.ai/${encodeURIComponent(fullPrompt.slice(0, 8000))}?model=openai`
-      );
-      const fullText = await getRes.text();
+    if (!upstreamRes || !upstreamRes.ok || !upstreamRes.body) {
+      // Check local Ollama endpoint if running offline
+      try {
+        const ollamaRes = await fetch('http://127.0.0.1:11434/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'llama3',
+            messages: formattedMessages,
+            stream: true,
+          }),
+          signal: AbortSignal.timeout(1000),
+        });
+        if (ollamaRes.ok && ollamaRes.body) {
+          return new Response(ollamaRes.body, {
+            headers: {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache, no-transform',
+              Connection: 'keep-alive',
+            },
+          });
+        }
+      } catch {
+        // Ollama not reachable
+      }
 
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: fullText })}\n\n`));
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-          controller.close();
-        },
-      });
-
-      return new Response(stream, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache, no-transform',
-          Connection: 'keep-alive',
-        },
-      });
+      // Seamless offline fallback intelligence engine
+      return streamOfflineTokens(lastUserMsg, reasoning_mode, formattedMessages);
     }
 
     // Stream SSE directly with line buffering and synchronized <thought> management
@@ -239,25 +288,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: any) {
-    const encoder = new TextEncoder();
-    const errorStream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ token: `I encountered a momentary connection hiccup (${err.message}). Please try asking again!` })}\n\n`
-          )
-        );
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        controller.close();
-      },
-    });
-
-    return new Response(errorStream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
-        Connection: 'keep-alive',
-      },
-    });
+    return streamOfflineTokens(lastUserMsg, reasoning_mode, formattedMessages);
   }
 }
