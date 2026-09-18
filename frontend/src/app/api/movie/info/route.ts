@@ -18,34 +18,34 @@ export async function GET(req: NextRequest) {
     .trim();
 
   let imdbId: string | null = null;
+  let tmdbId: string | null = null;
   let movieTitle = cleanTitle;
   let poster: string | null = null;
   let synopsis = '';
   let description = 'Feature Film';
   let wikiTitle: string | null = null;
 
-  // 2. DuckDuckGo search to extract IMDb ID and canonical Wikipedia link
+  // 2. Parallel DuckDuckGo lookups for IMDb ID and TMDB ID
   try {
-    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanTitle + ' movie imdb')}`;
-    const ddgRes = await fetch(ddgUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
-      },
-      signal: AbortSignal.timeout(3000),
-    });
+    const [imdbRes, tmdbRes] = await Promise.allSettled([
+      fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanTitle + ' movie imdb')}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' },
+        signal: AbortSignal.timeout(3000),
+      }).then((r) => (r.ok ? r.text() : '')),
+      fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanTitle + ' movie themoviedb')}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' },
+        signal: AbortSignal.timeout(3000),
+      }).then((r) => (r.ok ? r.text() : '')),
+    ]);
 
-    if (ddgRes.ok) {
-      const ddgRaw = await ddgRes.text();
-      const ddgHtml = decodeURIComponent(ddgRaw);
-
-      // Extract IMDb ID (tt followed by 7-8 digits only; discard nm actor IDs)
-      const imdbMatches = [...ddgHtml.matchAll(/(?:title|imdb\.com\/title)\/(tt\d{7,8})/g)];
+    if (imdbRes.status === 'fulfilled' && imdbRes.value) {
+      const decoded = decodeURIComponent(imdbRes.value);
+      const imdbMatches = [...decoded.matchAll(/(?:title|imdb\.com\/title)\/(tt\d{7,8})/g)];
       if (imdbMatches.length > 0) {
         imdbId = imdbMatches[0][1];
       }
 
-      // Extract Wikipedia movie link if present (skip person/actor pages)
-      const wikiMatches = [...ddgHtml.matchAll(/en\.wikipedia\.org\/wiki\/([^"&?#\s]+)/g)];
+      const wikiMatches = [...decoded.matchAll(/en\.wikipedia\.org\/wiki\/([^"&?#\s]+)/g)];
       for (const m of wikiMatches) {
         const slug = decodeURIComponent(m[1]);
         if (
@@ -55,6 +55,14 @@ export async function GET(req: NextRequest) {
           wikiTitle = slug;
           break;
         }
+      }
+    }
+
+    if (tmdbRes.status === 'fulfilled' && tmdbRes.value) {
+      const decodedTmdb = decodeURIComponent(tmdbRes.value);
+      const tmdbMatch = decodedTmdb.match(/themoviedb\.org\/movie\/(\d+)/);
+      if (tmdbMatch) {
+        tmdbId = tmdbMatch[1];
       }
     }
   } catch {}
@@ -110,34 +118,7 @@ export async function GET(req: NextRequest) {
     } catch {}
   }
 
-  // 4. If we have an IMDb ID but still no wikiTitle, reverse lookup via Wikidata
-  if (imdbId && !wikiTitle) {
-    try {
-      const wdUrl = `https://www.wikidata.org/w/api.php?action=query&list=search&srsearch=haswbstatement:P345=${imdbId}&format=json`;
-      const wdRes = await fetch(wdUrl, {
-        headers: { 'User-Agent': 'NexoraAI/1.0' },
-        signal: AbortSignal.timeout(2500),
-      }).then((r) => (r.ok ? r.json() : null));
-
-      const entityId = wdRes?.query?.search?.[0]?.title;
-      if (entityId) {
-        const entUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${entityId}&props=labels|descriptions|sitelinks/urls&languages=en&format=json`;
-        const entRes = await fetch(entUrl, {
-          headers: { 'User-Agent': 'NexoraAI/1.0' },
-          signal: AbortSignal.timeout(2500),
-        }).then((r) => (r.ok ? r.json() : null));
-
-        const ent = entRes?.entities?.[entityId];
-        if (ent) {
-          if (ent.labels?.en?.value) movieTitle = ent.labels.en.value;
-          if (ent.descriptions?.en?.value) description = ent.descriptions.en.value;
-          if (ent.sitelinks?.enwiki?.title) wikiTitle = ent.sitelinks.enwiki.title;
-        }
-      }
-    } catch {}
-  }
-
-  // 5. Fetch Wikipedia summary & wikibase item
+  // 4. Fetch Wikipedia summary & wikibase item
   if (wikiTitle) {
     try {
       const sumUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`;
@@ -165,6 +146,7 @@ export async function GET(req: NextRequest) {
         const wikibaseItem = page?.pageprops?.wikibase_item;
         if (wikibaseItem) {
           const wdRes = await fetch(`https://www.wikidata.org/w/api.php?action=wbgetclaims&entity=${wikibaseItem}&property=P345&format=json`, {
+            headers: { 'User-Agent': 'NexoraAI/1.0' },
             signal: AbortSignal.timeout(2000),
           }).then((r) => (r.ok ? r.json() : null));
           const val = wdRes?.claims?.P345?.[0]?.mainsnak?.datavalue?.value;
@@ -176,60 +158,14 @@ export async function GET(req: NextRequest) {
     } catch {}
   }
 
-  // 6. Query YouTube and parse initialData to accurately separate Full Length Movies from Trailers
-  let fullMovieId: string | null = null;
-  let fullMovieDuration: string | null = null;
-  let trailerId: string | null = null;
-
-  try {
-    const ytRes = await fetch(`https://www.youtube.com/results?search_query=${encodeURIComponent(cleanTitle + ' full movie')}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      signal: AbortSignal.timeout(3500),
-    });
-    const ytHtml = await ytRes.text();
-    const match = ytHtml.match(/var ytInitialData = ({.*?});<\/script>/);
-
-    if (match) {
-      const data = JSON.parse(match[1]);
-      const contents = data.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
-
-      for (const item of contents) {
-        const v = item.videoRenderer;
-        if (!v) continue;
-        const title = (v.title?.runs?.[0]?.text || '').toLowerCase();
-        const duration = v.lengthText?.simpleText || '';
-        const id = v.videoId;
-
-        const isTrailerOrClip = title.includes('trailer') || title.includes('teaser') || title.includes('promo') || title.includes('glimpse') || title.includes('scene') || title.includes('review') || title.includes('song');
-        const isLongPlay = duration.includes(':') && (duration.split(':').length === 3 || parseInt(duration.split(':')[0], 10) >= 40);
-
-        if (!isTrailerOrClip && isLongPlay && !fullMovieId) {
-          fullMovieId = id;
-          fullMovieDuration = duration;
-        }
-        if ((isTrailerOrClip || !isLongPlay) && !trailerId) {
-          trailerId = id;
-        }
-      }
-    }
-
-    // Fallback if regex match was empty
-    if (!trailerId) {
-      const m = ytHtml.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-      if (m) trailerId = m[1];
-    }
-  } catch {}
-
   return NextResponse.json({
     success: true,
     title: movieTitle,
     cleanTitle,
     description,
     poster,
-    synopsis: synopsis || `Stream ${movieTitle} in full HD across unrestricted digital cinema servers.`,
+    synopsis: synopsis || `Stream ${movieTitle} across high-speed digital servers.`,
     imdbId,
-    fullMovieId,
-    fullMovieDuration,
-    trailerId,
+    tmdbId,
   });
 }

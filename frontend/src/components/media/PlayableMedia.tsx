@@ -21,7 +21,7 @@ export interface PlayableMediaProps {
 export function MoviePlayer({ query, targetPlatform }: { query: string; targetPlatform?: string }) {
   const [loading, setLoading] = useState(true);
   const [movieData, setMovieData] = useState<any>(null);
-  const [selectedServer, setSelectedServer] = useState<'server1' | 'server2' | 'server3' | 'direct' | 'trailer'>('server1');
+  const [selectedServer, setSelectedServer] = useState<'server1' | 'server2' | 'server3' | 'server4'>('server1');
 
   useEffect(() => {
     let isMounted = true;
@@ -32,15 +32,7 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
       .then((data) => {
         if (isMounted && data.success) {
           setMovieData(data);
-          // If we have an IMDb ID, default to high-speed digital stream (Server 1 - VidLink)
-          // Otherwise default to direct full length movie stream
-          if (data.imdbId) {
-            setSelectedServer('server1');
-          } else if (data.fullMovieId) {
-            setSelectedServer('direct');
-          } else {
-            setSelectedServer('server1');
-          }
+          setSelectedServer('server1');
           setLoading(false);
         }
       })
@@ -54,48 +46,38 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
   }, [query]);
 
   const imdbId = movieData?.imdbId;
-  const fullMovieId = movieData?.fullMovieId;
-  const fullMovieDuration = movieData?.fullMovieDuration;
-  const trailerId = movieData?.trailerId;
+  const tmdbId = movieData?.tmdbId;
+  const targetId = tmdbId || imdbId || 'tt1375666';
   const title = movieData?.title || query;
-  const cleanTitle = movieData?.cleanTitle || query;
 
   const getEmbedUrl = () => {
-    // Server 1: VidLink Pro (Fastest, full feature movie, ad-free)
+    // Server 1: VidLink Pro (1080p, Multi-Audio, No Redirects)
     if (selectedServer === 'server1') {
-      if (imdbId) return `https://vidlink.pro/movie/${imdbId}`;
-      if (fullMovieId) return `https://www.youtube-nocookie.com/embed/${fullMovieId}?autoplay=1&rel=0`;
-      return `https://vidlink.pro/movie/search?title=${encodeURIComponent(cleanTitle)}`;
+      return `https://vidlink.pro/movie/${targetId}?primaryColor=06b6d4&autoplay=false`;
     }
-    // Server 2: SmashyStream (Reliable multi-source mirror)
+    // Server 2: AutoEmbed (Fast Cloud Stream)
     if (selectedServer === 'server2') {
-      if (imdbId) return `https://embed.smashystream.com/playere.php?imdb=${imdbId}`;
-      if (fullMovieId) return `https://www.youtube-nocookie.com/embed/${fullMovieId}?autoplay=1&rel=0`;
-      return `https://www.2embed.cc/embed/${imdbId || 'tt1375666'}`;
+      if (tmdbId) return `https://autoembed.co/movie/tmdb/${tmdbId}`;
+      if (imdbId) return `https://autoembed.co/movie/imdb/${imdbId}`;
+      return `https://autoembed.co/movie/imdb/tt1375666`;
     }
-    // Server 3: 2Embed (Global cinema mirror)
+    // Server 3: SmashyStream (Multi-Source Mirror)
     if (selectedServer === 'server3') {
-      if (imdbId) return `https://www.2embed.cc/embed/${imdbId}`;
-      if (fullMovieId) return `https://www.youtube-nocookie.com/embed/${fullMovieId}?autoplay=1&rel=0`;
-      return `https://vidlink.pro/movie/${imdbId || 'tt1375666'}`;
+      if (tmdbId) return `https://embed.smashystream.com/playere.php?tmdb=${tmdbId}`;
+      if (imdbId) return `https://embed.smashystream.com/playere.php?imdb=${imdbId}`;
+      return `https://embed.smashystream.com/playere.php?imdb=tt1375666`;
     }
-    // Direct Full Movie Stream
-    if (selectedServer === 'direct') {
-      if (fullMovieId) return `https://www.youtube-nocookie.com/embed/${fullMovieId}?autoplay=1&rel=0`;
-      return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(cleanTitle + ' full movie')}&autoplay=1`;
-    }
-    // Official Trailer
-    if (selectedServer === 'trailer') {
-      if (trailerId) return `https://www.youtube-nocookie.com/embed/${trailerId}?autoplay=1&rel=0`;
-      return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(cleanTitle + ' official trailer')}&autoplay=1`;
+    // Server 4: 2Embed (Global Mirror)
+    if (selectedServer === 'server4') {
+      return `https://www.2embed.cc/embed/${targetId}`;
     }
 
-    return `https://vidlink.pro/movie/${imdbId || 'tt1375666'}`;
+    return `https://vidlink.pro/movie/${targetId}`;
   };
 
   return (
-    <div className="my-3 rounded-2xl border border-red-500/30 bg-gradient-to-br from-[#120914] via-[#0d101d] to-[#070912] p-4 shadow-2xl shadow-red-950/30 max-w-2xl text-gray-200">
-      {/* Movie Details Header */}
+    <div className="my-3 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-[#0c101a] via-[#0d1222] to-[#070912] p-4 shadow-2xl shadow-cyan-950/20 max-w-2xl text-gray-200">
+      {/* Movie Header */}
       <div className="flex gap-3.5 mb-3.5">
         {movieData?.poster ? (
           <img
@@ -104,21 +86,16 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
             className="w-16 h-24 object-cover rounded-xl border border-white/10 shadow-lg shrink-0"
           />
         ) : (
-          <div className="w-16 h-24 rounded-xl bg-gradient-to-tr from-red-600/30 to-purple-600/30 border border-red-500/40 flex items-center justify-center shrink-0">
-            <Clapperboard className="w-7 h-7 text-red-400" />
+          <div className="w-16 h-24 rounded-xl bg-gradient-to-tr from-cyan-600/30 to-blue-600/30 border border-cyan-500/40 flex items-center justify-center shrink-0">
+            <Clapperboard className="w-7 h-7 text-cyan-400" />
           </div>
         )}
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Full Movie Streaming
+            <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" /> Full Movie Streaming
             </span>
-            {fullMovieDuration && (
-              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/50 border border-cyan-500/30 px-2 py-0.5 rounded-full">
-                ⏱️ {fullMovieDuration}
-              </span>
-            )}
             {movieData?.description && (
               <span className="text-[11px] text-gray-400 truncate max-w-xs">
                 {movieData.description}
@@ -131,15 +108,15 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
           </h3>
 
           <p className="text-xs text-gray-300/85 line-clamp-2 mt-1 leading-relaxed">
-            {movieData?.synopsis || `Stream ${title} directly in HD across digital streaming platforms.`}
+            {movieData?.synopsis || `Stream ${title} directly in HD without redirects.`}
           </p>
         </div>
       </div>
 
-      {/* Stream Source Selector Tabs */}
+      {/* Stream Source Selector Tabs - ONLY Cinema Servers (No Direct Stream, No Trailer) */}
       <div className="flex items-center gap-1.5 mb-3 overflow-x-auto text-[11px] pb-1 scrollbar-none">
         <span className="text-gray-400 shrink-0 font-medium flex items-center gap-1 mr-1">
-          <Radio className="w-3.5 h-3.5 text-emerald-400" /> Servers:
+          <Radio className="w-3.5 h-3.5 text-cyan-400" /> Servers:
         </span>
 
         {/* Server 1: VidLink HD */}
@@ -147,79 +124,67 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
           onClick={() => setSelectedServer('server1')}
           className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 flex items-center gap-1.5 ${
             selectedServer === 'server1'
-              ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-sm shadow-emerald-500/20 font-bold'
+              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-500/20 font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title="Fastest digital cloud server (Full Movie, 1080p, Multi-Audio)"
+          title="Server 1: Full 1080p Stream (Ad-Free)"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
           <span>Server 1 (VidLink HD)</span>
         </button>
 
-        {/* Server 2: SmashyStream */}
+        {/* Server 2: AutoEmbed */}
         <button
           onClick={() => setSelectedServer('server2')}
           className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
             selectedServer === 'server2'
-              ? 'bg-red-500/25 text-red-300 border border-red-500/50 shadow-sm font-bold'
+              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title="Multi-source cloud cinema stream"
+          title="Server 2: Fast Cloud Cinema"
         >
-          Server 2 (Smashy)
+          Server 2 (AutoEmbed)
         </button>
 
-        {/* Server 3: 2Embed */}
+        {/* Server 3: SmashyStream */}
         <button
           onClick={() => setSelectedServer('server3')}
           className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
             selectedServer === 'server3'
-              ? 'bg-red-500/25 text-red-300 border border-red-500/50 shadow-sm font-bold'
-              : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
-          }`}
-          title="Global streaming mirror"
-        >
-          Server 3 (2Embed)
-        </button>
-
-        {/* Server 4: Direct Full Movie Stream */}
-        <button
-          onClick={() => setSelectedServer('direct')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
-            selectedServer === 'direct'
               ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title="Direct Full Length Movie Stream"
+          title="Server 3: Multi-Source Cinema"
         >
-          ▶️ Direct Stream
+          Server 3 (Smashy)
         </button>
 
-        {/* Trailer */}
+        {/* Server 4: 2Embed */}
         <button
-          onClick={() => setSelectedServer('trailer')}
-          className={`px-2.5 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
-            selectedServer === 'trailer'
-              ? 'bg-purple-500/25 text-purple-300 border border-purple-500/50 shadow-sm font-bold'
+          onClick={() => setSelectedServer('server4')}
+          className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
+            selectedServer === 'server4'
+              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm font-bold'
               : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
           }`}
-          title="Official Trailer"
+          title="Server 4: Global Stream Mirror"
         >
-          🎬 Trailer
+          Server 4 (2Embed)
         </button>
       </div>
 
-      {/* Video Player Frame */}
+      {/* Video Player Frame with Anti-Redirect Sandbox */}
       {loading ? (
-        <div className="aspect-video w-full rounded-xl bg-black/50 border border-white/5 flex items-center justify-center gap-3 text-sm text-emerald-400/80 font-mono">
-          <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-          <span>Loading movie stream...</span>
+        <div className="aspect-video w-full rounded-xl bg-black/50 border border-white/5 flex items-center justify-center gap-3 text-sm text-cyan-400/80 font-mono">
+          <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+          <span>Connecting to movie stream...</span>
         </div>
       ) : (
         <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl">
           <iframe
             src={getEmbedUrl()}
             className="w-full h-full"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
           />
