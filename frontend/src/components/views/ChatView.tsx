@@ -348,25 +348,24 @@ export const ChatView: React.FC<ChatViewProps> = ({
             onChange={(e) => setInput(e.target.value)}
             placeholder={
               reasoningMode
-                ? 'Ask with Deep Reasoning enabled (o3 / R1 step-by-step)...'
-                : 'Message NEXORA AI (100% Free, zero subscription)...'
+                ? 'Ask with Deep Reasoning enabled (o3 / R1)...'
+                : 'Message Nexora...'
             }
-            className="flex-1 bg-transparent px-3 py-2 text-sm text-white placeholder-gray-400 outline-none"
+            className="flex-1 bg-transparent px-3 py-2 text-sm text-white placeholder-[#8e8e8e] outline-none"
           />
 
           {/* Send Button */}
           <button
             type="submit"
             disabled={!input.trim() || isStreaming}
-            className="p-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white disabled:opacity-30 hover:opacity-90 transition-all shadow-md shadow-cyan-500/20"
+            className="p-2.5 rounded-xl bg-white text-black hover:bg-[#ececec] disabled:opacity-30 transition-all shadow-md"
           >
             <Send className="w-4 h-4" />
           </button>
         </form>
 
-        <div className="max-w-4xl mx-auto mt-2 flex items-center justify-between text-[11px] text-gray-400 px-2">
-          <span>Active Provider: <strong className="text-gray-300 font-mono">{settings.provider}</strong></span>
-          <span>Zero Subscriptions Required • Private & Unlimited</span>
+        <div className="max-w-4xl mx-auto mt-2 text-center text-[11.5px] text-[#8e8e8e]">
+          <span>Nexora can make mistakes. Verify important info.</span>
         </div>
       </div>
     </div>

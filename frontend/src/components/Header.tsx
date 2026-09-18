@@ -6,7 +6,6 @@ import {
   Brain,
   Trash2,
   SlidersHorizontal,
-  Cpu,
   Zap,
   Globe2,
   PanelLeftOpen,
@@ -91,41 +90,6 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Reasoning {reasoningMode ? 'ON' : 'OFF'}</span>
         </button>
 
-        {/* Model Quick Switcher */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/5 text-xs text-gray-300">
-          <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-          <select
-            value={settings.provider}
-            onChange={(e) =>
-              setSettings((prev) => ({
-                ...prev,
-                provider: e.target.value as UserSettings['provider'],
-              }))
-            }
-            aria-label="Select AI Model Provider"
-            className="bg-transparent text-gray-200 outline-none cursor-pointer text-xs font-mono"
-          >
-            <option value="pollinations" className="bg-[#161a23] text-gray-200">
-              ⚡ Zero API Key Engine (Default)
-            </option>
-            <option value="groq" className="bg-[#161a23] text-gray-200">
-              🚀 Groq (LLaMA 3.3 70B / Free)
-            </option>
-            <option value="gemini" className="bg-[#161a23] text-gray-200">
-              ✨ Gemini 2.0 Flash (Free)
-            </option>
-            <option value="openrouter" className="bg-[#161a23] text-gray-200">
-              🌐 OpenRouter Free Models
-            </option>
-            <option value="ollama" className="bg-[#161a23] text-gray-200">
-              💻 Local Ollama (Offline)
-            </option>
-            <option value="lmstudio" className="bg-[#161a23] text-gray-200">
-              🛠️ Local LM Studio
-            </option>
-          </select>
-        </div>
-
         {/* Clear Chat / View Button */}
         <button
           onClick={onClear}
@@ -138,8 +102,8 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Open Settings Modal */}
         <button
           onClick={openSettings}
-          className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 transition-colors"
-          title="Configure API Keys & Endpoints"
+          className="p-2 rounded-lg bg-white/[0.04] border border-white/5 text-gray-400 hover:text-white hover:bg-white/[0.08] transition-colors"
+          title="Settings"
         >
           <SlidersHorizontal className="w-4 h-4" />
         </button>
