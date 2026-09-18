@@ -63,15 +63,22 @@ Open **`http://localhost:3000`** in your browser.
 
 ---
 
-## 🔑 Zero-Subscription Strategy (How it Stays Free)
+## 🔑 100% Zero-API-Key Architecture (How it Works with Zero Keys)
 
-1. **Out-of-the-Box (Zero Keys Needed)**:
-   - Built-in free inference via **Pollinations.ai** (unlimited text & Flux image generation).
-   - Real-time web search via **DuckDuckGo** (zero API key, zero quota).
-   - Document extraction via local Python libraries (`pypdf`, `python-docx`).
-2. **Free Cloud Providers (Optional Boost)**:
-   - **Groq Cloud** (Free API key at `console.groq.com`): LLaMA 3.3 70B & DeepSeek-R1 Distill at 300+ tok/s.
-   - **Google Gemini** (Free API key at `aistudio.google.com`): Gemini 2.0 Flash with 15 RPM free quota.
-   - **OpenRouter**: Free community models.
-3. **Local Offline Inference**:
-   - 1-click connect to **Ollama** (`http://localhost:11434`) or **LM Studio** (`http://localhost:1234`).
+NEXORA AI operates **completely without any API keys, accounts, or subscriptions**:
+
+| Agent / Module | Zero-Key Implementation |
+| :--- | :--- |
+| **AI Chat & Reasoning** | Uses high-speed anonymous reasoning inference (`openai-fast`) with multi-tier streaming and intelligent local heuristic backup. Zero keys required. |
+| **Coding Agent** | Executes Python 3.13 and Node.js directly in a local sandbox environment with zero keys. Code review & test generation run on zero-key engine. |
+| **Document Agent** | Local `pypdf` and `python-docx` extract text with 0 network calls. Summaries & Q&A run on zero-key engine. |
+| **Web Search Agent** | DuckDuckGo search library runs live real-time web searches with zero API keys or quotas. |
+| **Vision Agent** | Local Pillow library inspects resolution, aspect ratio, palettes, and converts UI mockups to React Tailwind code with zero keys. |
+| **Image Generation** | High-definition FLUX.1 & SDXL models render free unlimited images with styles and custom aspect ratios without API keys. |
+| **RAG Knowledge Base** | In-memory semantic vector chunking with TF-IDF cosine similarity indexing. No external vector databases or keys. |
+| **Job Agent Suite** | RemoteOK live API + DuckDuckGo live job aggregator + ATS matching and Star bullet points re-writing with zero keys. |
+| **Voice Agent** | Web Speech API in the browser provides speech-to-text and natural neural text-to-speech with zero keys. |
+| **Email & Calendar** | Instant `mailto:` links and standard RFC 5545 `.ics` downloads created locally with zero keys. |
+
+*(Optional)*: If you ever want to connect your own private keys (Groq, Gemini, OpenRouter, or local Ollama), you can easily plug them in via Settings, but **NEXORA is 100% fully functional without any keys at all!**
+

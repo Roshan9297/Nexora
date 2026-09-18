@@ -54,9 +54,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-200 text-xs flex items-start gap-2.5">
             <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-cyan-100 mb-0.5">100% Free & Subscription-Free</p>
+              <p className="font-semibold text-cyan-100 mb-0.5">Zero API Keys Required • 100% Autonomous</p>
               <p className="text-cyan-200/80 leading-relaxed">
-                NEXORA works immediately without any keys using our built-in Free Fallback Engine (Pollinations). You can also paste free API keys below for ultra-fast performance.
+                NEXORA AI is designed to run completely without any API keys, accounts, or subscriptions! Every agent operates out-of-the-box. The key fields below are strictly optional.
               </p>
             </div>
           </div>
@@ -64,7 +64,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Active Provider */}
           <div>
             <label className="block text-xs font-medium text-gray-300 mb-1.5">
-              Active LLM Provider
+              Active LLM Engine
             </label>
             <select
               value={form.provider}
@@ -73,12 +73,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }
               className="w-full bg-[#181d2a] border border-white/10 rounded-xl px-3 py-2 text-white outline-none focus:border-cyan-500"
             >
-              <option value="pollinations">⚡ Pollinations (100% Free - No Key Required)</option>
-              <option value="groq">🚀 Groq Cloud (Free Fast Tier - 300+ tok/s)</option>
-              <option value="gemini">✨ Google Gemini 2.0 / 1.5 Flash (Free Tier)</option>
-              <option value="openrouter">🌐 OpenRouter Free Models</option>
-              <option value="ollama">💻 Local Ollama (100% Offline & Private)</option>
-              <option value="lmstudio">🛠️ Local LM Studio (Local Inference)</option>
+              <option value="pollinations">⚡ Zero API Key Engine (Default - 100% Free & Unlimited)</option>
+              <option value="groq">🚀 Groq Cloud (Optional Free API Key)</option>
+              <option value="gemini">✨ Google Gemini (Optional Free API Key)</option>
+              <option value="openrouter">🌐 OpenRouter (Optional Free Models)</option>
+              <option value="ollama">💻 Local Ollama (100% Offline)</option>
+              <option value="lmstudio">🛠️ Local LM Studio</option>
             </select>
           </div>
 

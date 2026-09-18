@@ -178,11 +178,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 backendOnline ? 'bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400' : 'bg-rose-500'
               }`}
             />
-            <span className="truncate max-w-[120px] font-mono text-[11px] text-gray-300">
-              {backendOnline ? provider : 'Connecting...'}
+            <span className="truncate max-w-[130px] font-mono text-[11px] text-gray-200">
+              {backendOnline
+                ? provider === 'pollinations'
+                  ? '⚡ Zero Keys Active'
+                  : provider
+                : 'Connecting...'}
             </span>
           </div>
-          <span className="text-[10px] text-emerald-400 font-mono">100% FREE</span>
+          <span className="text-[10px] text-emerald-400 font-mono font-semibold">NO KEYS NEEDED</span>
         </div>
 
         {/* Settings button */}

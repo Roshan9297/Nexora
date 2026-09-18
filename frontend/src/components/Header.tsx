@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="bg-transparent text-gray-200 outline-none cursor-pointer text-xs font-mono"
           >
             <option value="pollinations" className="bg-[#161a23] text-gray-200">
-              ⚡ Pollinations (Free Fallback)
+              ⚡ Zero API Key Engine (Default)
             </option>
             <option value="groq" className="bg-[#161a23] text-gray-200">
               🚀 Groq (LLaMA 3.3 70B / Free)
