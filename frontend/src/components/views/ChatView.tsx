@@ -18,6 +18,43 @@ import {
   ChevronUp,
   RotateCcw,
 } from 'lucide-react';
+import PlayableMedia from '@/components/media/PlayableMedia';
+
+function extractPlayableMedia(content: string, userPrompt?: string) {
+  if (!content && !userPrompt) return null;
+
+  // 1. Explicit tags from assistant
+  const songTag = content.match(/:::song\{query="([^"]+)"\}:::/);
+  if (songTag) return { type: 'song' as const, query: songTag[1] };
+
+  const videoTag = content.match(/:::video\{query="([^"]+)"\}:::/);
+  if (videoTag) return { type: 'video' as const, query: videoTag[1] };
+
+  const gameTag = content.match(/:::game\{name="([^"]+)"\}:::/);
+  if (gameTag) return { type: 'game' as const, gameName: gameTag[1] as any };
+
+  // 2. User prompt heuristic fallback
+  if (userPrompt) {
+    const p = userPrompt.trim();
+    if (/play\s+(?:a\s+)?game|let'?s\s+play\s+game/i.test(p)) return { type: 'game' as const, gameName: 'arcade' as const };
+    if (/play\s+snake/i.test(p)) return { type: 'game' as const, gameName: 'snake' as const };
+    if (/play\s+(?:tic[\s-]?tac[\s-]?toe|tictactoe)/i.test(p)) return { type: 'game' as const, gameName: 'tictactoe' as const };
+    if (/play\s+2048/i.test(p)) return { type: 'game' as const, gameName: '2048' as const };
+
+    if (/trailer|teaser|clip|video/i.test(p)) {
+      const q = p.replace(/^(?:play|show|watch)\s+(?:the\s+)?/i, '').trim();
+      return { type: 'video' as const, query: q };
+    }
+
+    const songMatch = p.match(/^(?:play|listen\s+to)\s+(?:the\s+)?(?:song\s+)?(.+)/i);
+    if (songMatch) {
+      const q = songMatch[1].replace(/song$/i, '').trim();
+      return { type: 'song' as const, query: q };
+    }
+  }
+
+  return null;
+}
 
 interface ChatViewProps {
   settings: UserSettings;
@@ -171,10 +208,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const suggestions = [
+    '🎵 Play Shape of You by Ed Sheeran',
+    '🎬 Play Pushpa 2 official trailer',
+    '🐍 Play Retro Snake Game',
+    '❌⭕ Play Tic-Tac-Toe vs NEXORA AI',
+    '🔢 Play 2048 Puzzle Game',
     'Explain quantum computing in simple terms with a real-world analogy.',
-    'Write a production-ready Python script to scrape and monitor news headlines.',
-    'Design an automated system architecture for high-concurrency microservices.',
-    'Review my technical background and give me high-impact interview preparation tips.',
   ];
 
   return (
@@ -211,11 +250,19 @@ export const ChatView: React.FC<ChatViewProps> = ({
             </div>
           </div>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg, index) => {
             const isUser = msg.role === 'user';
             const isThinking = isStreaming && Boolean(msg.thought) && !msg.content;
             const hasThought = Boolean(msg.thought);
             const isExpanded = expandedThoughts[msg.id] ?? (reasoningMode || isThinking);
+
+            const prevUserMsg = !isUser
+              ? messages.slice(0, index).reverse().find((m) => m.role === 'user')?.content || ''
+              : '';
+            const mediaItem = !isUser ? extractPlayableMedia(msg.content, prevUserMsg) : null;
+            const cleanDisplayContent = msg.content
+              ? msg.content.replace(/:::(song|video|game)\{[^}]+\}:::/g, '').trim()
+              : '';
 
             return (
               <div
@@ -270,9 +317,26 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     ) : (
                       <>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {msg.content || (isThinking ? '_Thinking deeply..._' : '...')}
-                        </ReactMarkdown>
+                        {/* Interactive Playable Media (Songs, Videos, Games) */}
+                        {mediaItem && (
+                          <div className="mb-3">
+                            <PlayableMedia
+                              type={mediaItem.type}
+                              query={mediaItem.query}
+                              gameName={mediaItem.gameName}
+                            />
+                          </div>
+                        )}
+
+                        {cleanDisplayContent ? (
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {cleanDisplayContent}
+                          </ReactMarkdown>
+                        ) : isThinking ? (
+                          <p className="text-gray-400 italic">Thinking deeply...</p>
+                        ) : !mediaItem ? (
+                          <p className="text-gray-500">...</p>
+                        ) : null}
 
                         {/* Action buttons on message */}
                         {msg.content && (
