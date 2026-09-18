@@ -24,6 +24,13 @@ export interface ChatMessage {
   sources?: Array<{ title: string; link: string; snippet?: string }>;
 }
 
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  updatedAt: number;
+}
+
 export interface UserSettings {
   provider: 'pollinations' | 'groq' | 'gemini' | 'ollama' | 'lmstudio' | 'openrouter';
   model: string;

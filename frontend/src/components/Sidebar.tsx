@@ -1,25 +1,33 @@
 'use client';
 
-import React from 'react';
-import { AgentType } from '@/types';
+import React, { useState } from 'react';
+import { AgentType, ChatSession } from '@/types';
 import {
+  SquarePen,
+  Library,
+  Clock,
+  Blocks,
+  MoreHorizontal,
+  Folder,
   MessageSquare,
+  Search,
+  PanelLeftClose,
+  ChevronDown,
+  Sparkles,
+  Trash2,
+  Settings as SettingsIcon,
   Brain,
   Code2,
   FileText,
-  Search,
   Eye,
   Mic,
-  Sparkles,
+  Image as ImageIcon,
   Database,
   Globe,
   Briefcase,
   Mail,
   Calendar,
   Zap,
-  Settings as SettingsIcon,
-  ShieldCheck,
-  ChevronRight,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -28,19 +36,13 @@ interface SidebarProps {
   openSettings: () => void;
   backendOnline: boolean;
   provider: string;
-}
-
-interface SidebarItem {
-  id: AgentType;
-  label: string;
-  icon: any;
-  badge?: string;
-  highlight?: boolean;
-}
-
-interface SidebarGroup {
-  group: string;
-  items: SidebarItem[];
+  isCollapsed: boolean;
+  setIsCollapsed: (val: boolean) => void;
+  sessions: ChatSession[];
+  activeSessionId: string;
+  onSelectSession: (id: string) => void;
+  onNewChat: () => void;
+  onDeleteSession: (id: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -49,156 +51,298 @@ export const Sidebar: React.FC<SidebarProps> = ({
   openSettings,
   backendOnline,
   provider,
+  isCollapsed,
+  setIsCollapsed,
+  sessions,
+  activeSessionId,
+  onSelectSession,
+  onNewChat,
+  onDeleteSession,
 }) => {
-  const agentGroups: SidebarGroup[] = [
-    {
-      group: 'Core Intelligence',
-      items: [
-        { id: 'chat' as AgentType, label: 'AI Chat', icon: MessageSquare, badge: 'Unified' },
-        { id: 'reasoning' as AgentType, label: 'Deep Reasoning', icon: Brain, badge: 'o3 / R1' },
-      ],
-    },
-    {
-      group: 'Code & Knowledge',
-      items: [
-        { id: 'coding' as AgentType, label: 'Coding Agent', icon: Code2, badge: 'Runner' },
-        { id: 'document' as AgentType, label: 'Document Agent', icon: FileText, badge: 'PDF/Doc' },
-        { id: 'search' as AgentType, label: 'Web Search', icon: Search, badge: 'Live Free' },
-        { id: 'browser' as AgentType, label: 'Browser Agent', icon: Globe, badge: 'Scraper' },
-        { id: 'rag' as AgentType, label: 'RAG Knowledge Base', icon: Database, badge: 'Vector' },
-      ],
-    },
-    {
-      group: 'Creative & Multimodal',
-      items: [
-        { id: 'vision' as AgentType, label: 'Vision Agent', icon: Eye, badge: 'OCR/Code' },
-        { id: 'voice' as AgentType, label: 'Voice Agent', icon: Mic, badge: '2-Way' },
-        { id: 'image_gen' as AgentType, label: 'Image Gen', icon: Sparkles, badge: 'Flux 100% Free' },
-      ],
-    },
-    {
-      group: 'Career Powerhouse',
-      items: [
-        { id: 'jobs' as AgentType, label: 'Job Agent Suite', icon: Briefcase, badge: '7-in-1', highlight: true },
-      ],
-    },
-    {
-      group: 'Productivity & Workflows',
-      items: [
-        { id: 'email' as AgentType, label: 'Email Agent', icon: Mail, badge: 'Mailto' },
-        { id: 'calendar' as AgentType, label: 'Calendar Agent', icon: Calendar, badge: '.ICS' },
-        { id: 'automation' as AgentType, label: 'Automation Agent', icon: Zap, badge: 'Pipelines' },
-      ],
-    },
-  ];
+  const [showMoreAgents, setShowMoreAgents] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  if (isCollapsed) return null;
+
+  // Filtered chats based on quick search
+  const filteredSessions = sessions.filter((s) =>
+    s.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <aside className="w-72 h-screen bg-[#0d1017]/90 border-r border-white/5 flex flex-col justify-between select-none z-20">
-      {/* Brand Header */}
-      <div className="p-4 border-b border-white/5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-lg tracking-wider text-white">NEXORA</span>
-              <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-mono font-medium border border-cyan-500/30">
-                PRO
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-400">Zero-Sub Autonomous AI</p>
-          </div>
+    <aside className="w-[260px] h-screen bg-[#171717] text-[#ececec] flex flex-col justify-between border-r border-[#262626] select-none text-[13.5px] font-sans shrink-0 z-30">
+      {/* 1. Header (Brand + Search + Collapse) */}
+      <div className="h-12 px-3 flex items-center justify-between border-b border-[#262626]/40">
+        <span
+          onClick={() => {
+            setActiveAgent('chat');
+            onNewChat();
+          }}
+          className="font-bold text-[17px] tracking-tight text-white cursor-pointer hover:opacity-90"
+        >
+          Nexora
+        </span>
+
+        <div className="flex items-center gap-1 text-[#b4b4b4]">
+          <button
+            onClick={() => setIsSearchOpen(!isSearchOpen)}
+            className="p-1.5 rounded-lg hover:bg-[#212121] hover:text-white transition-colors"
+            title="Search chats"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setIsCollapsed(true)}
+            className="p-1.5 rounded-lg hover:bg-[#212121] hover:text-white transition-colors"
+            title="Close sidebar"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Agents Navigation List */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
-        {agentGroups.map((grp) => (
-          <div key={grp.group}>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-300 px-3 mb-1.5">
-              {grp.group}
-            </p>
-            <div className="space-y-1">
-              {grp.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeAgent === item.id;
+      {/* Quick Search Dropdown Input */}
+      {isSearchOpen && (
+        <div className="px-3 py-2 border-b border-[#262626] bg-[#1a1a1a]">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search conversations..."
+            autoFocus
+            className="w-full bg-[#262626] rounded-md px-2.5 py-1.5 text-xs text-white placeholder-[#8e8e8e] outline-none"
+          />
+        </div>
+      )}
+
+      {/* 2. Scrollable Body */}
+      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-4 scrollbar-thin">
+        {/* Main Shortcuts List (Exact screenshot match) */}
+        <div className="space-y-0.5">
+          {/* New chat */}
+          <button
+            onClick={() => {
+              setActiveAgent('chat');
+              onNewChat();
+            }}
+            className="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-white hover:bg-[#212121] transition-colors"
+          >
+            <SquarePen className="w-4 h-4 text-[#b4b4b4]" />
+            <span>New chat</span>
+          </button>
+
+          {/* Library */}
+          <button
+            onClick={() => setActiveAgent('rag')}
+            className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg transition-colors ${
+              activeAgent === 'rag'
+                ? 'bg-[#212121] text-white'
+                : 'text-[#ececec] hover:bg-[#212121]'
+            }`}
+          >
+            <Library className="w-4 h-4 text-[#b4b4b4]" />
+            <span>Library</span>
+          </button>
+
+          {/* Scheduled */}
+          <button
+            onClick={() => setActiveAgent('calendar')}
+            className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg transition-colors ${
+              activeAgent === 'calendar'
+                ? 'bg-[#212121] text-white'
+                : 'text-[#ececec] hover:bg-[#212121]'
+            }`}
+          >
+            <Clock className="w-4 h-4 text-[#b4b4b4]" />
+            <span>Scheduled</span>
+          </button>
+
+          {/* Plugins */}
+          <button
+            onClick={() => setActiveAgent('coding')}
+            className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg transition-colors ${
+              activeAgent === 'coding'
+                ? 'bg-[#212121] text-white'
+                : 'text-[#ececec] hover:bg-[#212121]'
+            }`}
+          >
+            <Blocks className="w-4 h-4 text-[#b4b4b4]" />
+            <span>Plugins</span>
+          </button>
+
+          {/* More (Opens Agent Hub) */}
+          <button
+            onClick={() => setShowMoreAgents(!showMoreAgents)}
+            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors ${
+              showMoreAgents
+                ? 'bg-[#212121] text-white'
+                : 'text-[#ececec] hover:bg-[#212121]'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <MoreHorizontal className="w-4 h-4 text-[#b4b4b4]" />
+              <span>More</span>
+            </div>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-[#8e8e8e] transition-transform ${
+                showMoreAgents ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {/* More Agents Accordion Dropdown */}
+          {showMoreAgents && (
+            <div className="pl-3 pr-1 py-1 space-y-0.5 border-l border-[#262626] ml-3 my-1">
+              {[
+                { id: 'reasoning' as AgentType, label: 'Deep Reasoning', icon: Brain },
+                { id: 'jobs' as AgentType, label: 'Job Agent Suite', icon: Briefcase },
+                { id: 'search' as AgentType, label: 'Web Search', icon: Search },
+                { id: 'browser' as AgentType, label: 'Browser Scraper', icon: Globe },
+                { id: 'document' as AgentType, label: 'Document Agent', icon: FileText },
+                { id: 'vision' as AgentType, label: 'Vision Agent', icon: Eye },
+                { id: 'voice' as AgentType, label: 'Voice Audio', icon: Mic },
+                { id: 'image_gen' as AgentType, label: 'Image Gen (Flux)', icon: ImageIcon },
+                { id: 'email' as AgentType, label: 'Email Agent', icon: Mail },
+                { id: 'automation' as AgentType, label: 'Automation', icon: Zap },
+              ].map((ag) => {
+                const Icon = ag.icon;
+                const isCurrent = activeAgent === ag.id;
                 return (
                   <button
-                    key={item.id}
-                    onClick={() => setActiveAgent(item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all group ${
-                      isActive
-                        ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/10 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                        : item.highlight
-                        ? 'bg-gradient-to-r from-purple-500/10 to-transparent text-purple-200 border border-purple-500/20 hover:border-purple-500/40'
-                        : 'text-gray-200 hover:text-white hover:bg-white/[0.04]'
+                    key={ag.id}
+                    onClick={() => setActiveAgent(ag.id)}
+                    className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-colors ${
+                      isCurrent
+                        ? 'bg-[#2f2f2f] text-white font-medium'
+                        : 'text-[#b4b4b4] hover:text-white hover:bg-[#212121]'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <Icon
-                        className={`w-4 h-4 transition-transform group-hover:scale-110 ${
-                          isActive
-                            ? 'text-cyan-400'
-                            : item.highlight
-                            ? 'text-purple-400'
-                            : 'text-gray-300 group-hover:text-gray-100'
-                        }`}
-                      />
-                      <span>{item.label}</span>
-                    </div>
-                    {item.badge && (
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-medium ${
-                          isActive
-                            ? 'bg-cyan-400/20 text-cyan-300'
-                            : item.highlight
-                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                            : 'bg-white/5 text-gray-300'
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
+                    <Icon className="w-3.5 h-3.5" />
+                    <span className="truncate">{ag.label}</span>
                   </button>
                 );
               })}
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Footer / System Status & Settings */}
-      <div className="p-3 border-t border-white/5 space-y-2 bg-black/20">
-        {/* Backend & Model Status Pill */}
-        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-xs text-gray-300">
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                backendOnline ? 'bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400' : 'bg-rose-500'
-              }`}
-            />
-            <span className="truncate max-w-[130px] font-mono text-[11px] text-gray-200">
-              {backendOnline
-                ? provider === 'pollinations'
-                  ? '⚡ Zero Keys Active'
-                  : provider
-                : 'Connecting...'}
-            </span>
-          </div>
-          <span className="text-[10px] text-emerald-400 font-mono font-semibold">NO KEYS NEEDED</span>
+          )}
         </div>
 
-        {/* Settings button */}
+        {/* 3. Section: Pinned */}
+        <div className="space-y-1 pt-2">
+          <p className="text-[11px] font-semibold text-[#8e8e8e] px-2.5">Pinned</p>
+          <div className="space-y-0.5">
+            <button
+              onClick={() => setActiveAgent('coding')}
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#ececec] hover:bg-[#212121] transition-colors"
+            >
+              <Folder className="w-4 h-4 text-[#8e8e8e]" />
+              <span className="truncate">Dotnet</span>
+            </button>
+
+            <button
+              onClick={() => setActiveAgent('jobs')}
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#ececec] hover:bg-[#212121] transition-colors"
+            >
+              <Folder className="w-4 h-4 text-[#8e8e8e]" />
+              <span className="truncate">Interview questions</span>
+            </button>
+
+            <button
+              onClick={() => setActiveAgent('email')}
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#ececec] hover:bg-[#212121] transition-colors"
+            >
+              <MessageSquare className="w-4 h-4 text-[#8e8e8e]" />
+              <span className="truncate">Resignation Letter Update</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 4. Section: Projects */}
+        <div className="space-y-1 pt-2">
+          <p className="text-[11px] font-semibold text-[#8e8e8e] px-2.5">Projects</p>
+          <div className="space-y-0.5">
+            <button
+              onClick={() => setActiveAgent('jobs')}
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#ececec] hover:bg-[#212121] transition-colors"
+            >
+              <Folder className="w-4 h-4 text-[#8e8e8e]" />
+              <span className="truncate">JD Tailor Resume</span>
+            </button>
+
+            <button
+              onClick={() => setActiveAgent('coding')}
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#ececec] hover:bg-[#212121] transition-colors"
+            >
+              <Folder className="w-4 h-4 text-[#8e8e8e]" />
+              <span className="truncate">Projects</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 5. Section: Chats */}
+        <div className="space-y-1 pt-2">
+          <p className="text-[11px] font-semibold text-[#8e8e8e] px-2.5">Chats</p>
+          <div className="space-y-0.5">
+            {filteredSessions.length > 0 ? (
+              filteredSessions.map((session) => {
+                const isActive = activeSessionId === session.id && activeAgent === 'chat';
+                return (
+                  <div
+                    key={session.id}
+                    onClick={() => {
+                      setActiveAgent('chat');
+                      onSelectSession(session.id);
+                    }}
+                    className={`group relative w-full flex items-center justify-between px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
+                      isActive
+                        ? 'bg-[#212121] text-white font-medium'
+                        : 'text-[#ececec] hover:bg-[#212121]/70'
+                    }`}
+                  >
+                    <span className="truncate text-[13px]">{session.title}</span>
+
+                    {/* Delete chat button on hover */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteSession(session.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-400 transition-opacity"
+                      title="Delete chat"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-xs text-[#8e8e8e] px-2.5 py-1 italic">No chats yet</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 6. Bottom User Profile Section (Matching Screenshot) */}
+      <div className="p-2 border-t border-[#262626]">
         <button
           onClick={openSettings}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-colors"
+          className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#212121] transition-colors text-left group"
         >
-          <div className="flex items-center gap-2.5">
-            <SettingsIcon className="w-4 h-4 text-gray-300" />
-            <span>Settings & Keys</span>
+          {/* Avatar Circle with Initials */}
+          <div className="w-8 h-8 rounded-full bg-[#5f7a77] text-white font-semibold text-xs flex items-center justify-center shrink-0">
+            RR
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-[13px] text-white truncate">Roshan Roy</p>
+            <p className="text-[11px] text-[#8e8e8e] truncate flex items-center gap-1">
+              <span>Go</span>
+              <span>•</span>
+              <span className="text-[#3b82f6] hover:underline">100% Free</span>
+            </p>
+          </div>
+
+          <SettingsIcon className="w-4 h-4 text-[#8e8e8e] group-hover:text-white transition-colors" />
         </button>
       </div>
     </aside>

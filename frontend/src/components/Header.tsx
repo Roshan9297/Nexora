@@ -9,6 +9,7 @@ import {
   Cpu,
   Zap,
   Globe2,
+  PanelLeftOpen,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -19,6 +20,8 @@ interface HeaderProps {
   setReasoningMode: (val: boolean) => void;
   onClear: () => void;
   openSettings: () => void;
+  isCollapsed?: boolean;
+  setIsCollapsed?: (val: boolean) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,6 +32,8 @@ export const Header: React.FC<HeaderProps> = ({
   setReasoningMode,
   onClear,
   openSettings,
+  isCollapsed,
+  setIsCollapsed,
 }) => {
   const titles: Record<AgentType, { name: string; subtitle: string }> = {
     chat: { name: 'AI Chat', subtitle: 'Next-Gen Multi-Turn Conversational Assistant' },
@@ -50,13 +55,24 @@ export const Header: React.FC<HeaderProps> = ({
   const currentInfo = titles[activeAgent] || { name: 'NEXORA AI', subtitle: 'Intelligent Agent Suite' };
 
   return (
-    <header className="h-16 border-b border-white/5 bg-[#0d1017]/80 backdrop-blur-md px-6 flex items-center justify-between z-10">
-      {/* Active Agent Info */}
-      <div className="flex flex-col">
-        <h1 className="text-base font-semibold text-white tracking-wide flex items-center gap-2">
-          {currentInfo.name}
-        </h1>
-        <p className="text-xs text-gray-400">{currentInfo.subtitle}</p>
+    <header className="h-14 border-b border-[#262626] bg-[#171717] px-4 md:px-6 flex items-center justify-between z-10">
+      {/* Active Agent Info & Sidebar Expand Trigger */}
+      <div className="flex items-center gap-3">
+        {isCollapsed && setIsCollapsed && (
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className="p-1.5 rounded-lg hover:bg-[#212121] text-[#b4b4b4] hover:text-white transition-colors"
+            title="Open sidebar"
+          >
+            <PanelLeftOpen className="w-5 h-5" />
+          </button>
+        )}
+        <div className="flex flex-col">
+          <h1 className="text-sm font-semibold text-white tracking-wide flex items-center gap-2">
+            {currentInfo.name}
+          </h1>
+          <p className="text-[11px] text-[#8e8e8e]">{currentInfo.subtitle}</p>
+        </div>
       </div>
 
       {/* Control Actions */}
