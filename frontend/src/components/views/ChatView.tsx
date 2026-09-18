@@ -63,10 +63,12 @@ function extractPlayableMedia(content: string, userPrompt?: string) {
       const eMatch = p.match(/(?:episode|ep)\s*(\d+)/i);
       const cleanQ = p
         .replace(/^(?:play|watch|stream|show)\s+(?:the\s+)?/i, '')
-        .replace(/\s+(?:season|s)\s*\d+/i, '')
-        .replace(/\s+(?:episode|ep)\s*\d+/i, '')
-        .replace(/\b(?:on|in|from)\s+(?:netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|crunchyroll|apple(?:\s*tv)?)\b/i, '')
-        .replace(/\b(?:anime|series|show|tv\s*series|web\s*series)\b/i, '')
+        .replace(/\s+(?:season|s)\s*\d+/gi, '')
+        .replace(/\s+(?:episode|ep)\s*\d+/gi, '')
+        .replace(/\b(?:on|in|from)\s+(?:netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|crunchyroll|apple(?:\s*tv)?)\b/gi, '')
+        .replace(/\b(?:in|with)\s+(?:japanese|korean|english|hindi|telugu|tamil|malayalam|kannada|spanish|french|german)\b/gi, '')
+        .replace(/\b(?:japanese|korean|english|hindi|telugu|tamil|malayalam|kannada|spanish|french|german)\s+(?:series|web\s*series|tv\s*series|movie|film|anime|show|drama|dub|sub)\b/gi, '')
+        .replace(/\b(?:anime|series|show|tv\s*series|web\s*series|drama|k-drama|kdrama)\b/gi, '')
         .trim();
       if (cleanQ) {
         return {
