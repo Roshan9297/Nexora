@@ -45,6 +45,26 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
     };
   }, [query]);
 
+  // Prevent unwanted popup redirects from third-party players
+  useEffect(() => {
+    const originalOpen = window.open;
+    window.open = (url?: string | URL, target?: string, features?: string) => {
+      console.warn('[Nexora Cinema] Suppressed redirect popup:', url);
+      return null;
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      return (e.returnValue = '');
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.open = originalOpen;
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
   const imdbId = movieData?.imdbId;
   const tmdbId = movieData?.tmdbId;
   const targetId = tmdbId || imdbId || 'tt1375666';
@@ -184,7 +204,6 @@ export function MoviePlayer({ query, targetPlatform }: { query: string; targetPl
           <iframe
             src={getEmbedUrl()}
             className="w-full h-full"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
           />
@@ -226,6 +245,26 @@ export function SongPlayer({ query }: { query: string }) {
       isMounted = false;
     };
   }, [query]);
+
+  // Prevent unwanted popup redirects from third-party players
+  useEffect(() => {
+    const originalOpen = window.open;
+    window.open = (url?: string | URL, target?: string, features?: string) => {
+      console.warn('[Nexora Cinema] Suppressed redirect popup:', url);
+      return null;
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      return (e.returnValue = '');
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.open = originalOpen;
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   return (
     <div className="my-3 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-[#0c101c] via-[#101726] to-[#0a0e1a] p-4 shadow-xl shadow-cyan-950/20 max-w-xl">
@@ -331,6 +370,26 @@ export function VideoPlayer({ query }: { query: string }) {
       isMounted = false;
     };
   }, [query]);
+
+  // Prevent unwanted popup redirects from third-party players
+  useEffect(() => {
+    const originalOpen = window.open;
+    window.open = (url?: string | URL, target?: string, features?: string) => {
+      console.warn('[Nexora Cinema] Suppressed redirect popup:', url);
+      return null;
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      return (e.returnValue = '');
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.open = originalOpen;
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   return (
     <div className="my-3 rounded-2xl border border-blue-500/30 bg-gradient-to-br from-[#0a0f1d] to-[#070a14] p-4 shadow-xl shadow-blue-950/20 max-w-2xl">
