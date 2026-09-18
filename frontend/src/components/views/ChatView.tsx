@@ -24,6 +24,9 @@ function extractPlayableMedia(content: string, userPrompt?: string) {
   if (!content && !userPrompt) return null;
 
   // 1. Explicit tags from assistant
+  const movieTag = content.match(/:::movie\{query="([^"]+)"(?:,\s*platform="([^"]+)")?\}:::/);
+  if (movieTag) return { type: 'movie' as const, query: movieTag[1], platform: (movieTag[2] as any) || 'all' };
+
   const songTag = content.match(/:::song\{query="([^"]+)"\}:::/);
   if (songTag) return { type: 'song' as const, query: songTag[1] };
 
@@ -40,6 +43,21 @@ function extractPlayableMedia(content: string, userPrompt?: string) {
     if (/play\s+snake/i.test(p)) return { type: 'game' as const, gameName: 'snake' as const };
     if (/play\s+(?:tic[\s-]?tac[\s-]?toe|tictactoe)/i.test(p)) return { type: 'game' as const, gameName: 'tictactoe' as const };
     if (/play\s+2048/i.test(p)) return { type: 'game' as const, gameName: '2048' as const };
+
+    // Movies (e.g. "play Inception", "watch Inception on Netflix", "play movie Pushpa", "stream Oppenheimer")
+    const platformMatch = p.match(/\b(?:on|in|from)\s+(netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|apple(?:\s*tv)?)\b/i);
+    const targetPlatform = platformMatch ? platformMatch[1].toLowerCase() : 'all';
+
+    if (/\b(?:movie|film|cinema)\b/i.test(p) || platformMatch) {
+      const cleanTitle = p
+        .replace(/^(?:play|watch|stream|show)\s+(?:the\s+)?(?:movie\s+)?/i, '')
+        .replace(/\b(?:on|in|from)\s+(netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|apple(?:\s*tv)?)\b/i, '')
+        .replace(/\b(?:movie|film|cinema)\b/i, '')
+        .trim();
+      if (cleanTitle) {
+        return { type: 'movie' as const, query: cleanTitle, platform: targetPlatform as any };
+      }
+    }
 
     if (/trailer|teaser|clip|video/i.test(p)) {
       const q = p.replace(/^(?:play|show|watch)\s+(?:the\s+)?/i, '').trim();
@@ -208,12 +226,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const suggestions = [
+    '🍿 Play Inception on Netflix',
+    '🎬 Play Pushpa 2 on Prime Video',
     '🎵 Play Shape of You by Ed Sheeran',
-    '🎬 Play Pushpa 2 official trailer',
     '🐍 Play Retro Snake Game',
     '❌⭕ Play Tic-Tac-Toe vs NEXORA AI',
     '🔢 Play 2048 Puzzle Game',
-    'Explain quantum computing in simple terms with a real-world analogy.',
   ];
 
   return (
@@ -261,7 +279,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
               : '';
             const mediaItem = !isUser ? extractPlayableMedia(msg.content, prevUserMsg) : null;
             const cleanDisplayContent = msg.content
-              ? msg.content.replace(/:::(song|video|game)\{[^}]+\}:::/g, '').trim()
+              ? msg.content.replace(/:::(song|video|game|movie)\{[^}]+\}:::/g, '').trim()
               : '';
 
             return (
@@ -317,13 +335,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     ) : (
                       <>
-                        {/* Interactive Playable Media (Songs, Videos, Games) */}
+                        {/* Interactive Playable Media (Songs, Videos, Games, Movies) */}
                         {mediaItem && (
                           <div className="mb-3">
                             <PlayableMedia
                               type={mediaItem.type}
                               query={mediaItem.query}
                               gameName={mediaItem.gameName}
+                              platform={mediaItem.platform}
                             />
                           </div>
                         )}

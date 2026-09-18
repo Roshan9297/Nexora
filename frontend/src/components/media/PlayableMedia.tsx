@@ -4,18 +4,241 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Play, Pause, RotateCcw, Volume2, VolumeX, Maximize2, ExternalLink, 
   Music, Film, Gamepad2, Trophy, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
-  Sparkles, Check, Flame
+  Sparkles, Check, Flame, Tv, Clapperboard, MonitorPlay, Radio, Info
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export interface PlayableMediaProps {
-  type: 'song' | 'video' | 'game';
+  type: 'song' | 'video' | 'game' | 'movie';
   query?: string;
   gameName?: 'snake' | 'tictactoe' | '2048' | 'flappy' | 'pong' | 'arcade';
+  platform?: 'netflix' | 'prime' | 'hotstar' | 'all';
 }
 
 /* =========================================================================
-   1. SONG / MUSIC PLAYER
+   1. DIGITAL PLATFORM MOVIE & CINEMA PLAYER (Netflix, Prime, Hotstar, Free)
+   ========================================================================= */
+export function MoviePlayer({ query, targetPlatform }: { query: string; targetPlatform?: string }) {
+  const [loading, setLoading] = useState(true);
+  const [movieData, setMovieData] = useState<any>(null);
+  const [selectedServer, setSelectedServer] = useState<'vidsrc' | 'embedsu' | 'autoembed' | 'trailer'>('trailer');
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+
+    fetch(`/api/movie/info?q=${encodeURIComponent(query)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.success) {
+          setMovieData(data);
+          // If we have an IMDb ID, default to Server 1, else trailer
+          if (data.imdbId) {
+            setSelectedServer('vidsrc');
+          } else {
+            setSelectedServer('trailer');
+          }
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [query]);
+
+  const imdbId = movieData?.imdbId;
+  const trailerId = movieData?.trailerId;
+  const title = movieData?.title || query;
+  const platforms = movieData?.platforms || {
+    netflix: `https://www.netflix.com/search?q=${encodeURIComponent(title)}`,
+    prime: `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${encodeURIComponent(title)}`,
+    hotstar: `https://www.hotstar.com/in/search?q=${encodeURIComponent(title)}`,
+    jiocinema: `https://www.jiocinema.com/search/${encodeURIComponent(title)}`,
+    appletv: `https://tv.apple.com/search?term=${encodeURIComponent(title)}`,
+    youtube: `https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' full movie')}`,
+  };
+
+  const getEmbedUrl = () => {
+    if (selectedServer === 'vidsrc' && imdbId) {
+      return `https://vidsrc.to/embed/movie/${imdbId}`;
+    }
+    if (selectedServer === 'embedsu' && imdbId) {
+      return `https://embed.su/embed/movie/${imdbId}`;
+    }
+    if (selectedServer === 'autoembed' && imdbId) {
+      return `https://autoembed.to/movie/imdb/${imdbId}`;
+    }
+    if (trailerId) {
+      return `https://www.youtube-nocookie.com/embed/${trailerId}?autoplay=1&rel=0`;
+    }
+    return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(title + ' movie')}&autoplay=1`;
+  };
+
+  return (
+    <div className="my-3 rounded-2xl border border-red-500/30 bg-gradient-to-br from-[#120a14] via-[#0f111d] to-[#080a12] p-4 shadow-2xl shadow-red-950/20 max-w-2xl text-gray-200">
+      {/* Movie Details Header */}
+      <div className="flex gap-3.5 mb-4">
+        {movieData?.poster ? (
+          <img
+            src={movieData.poster}
+            alt={title}
+            className="w-16 h-24 object-cover rounded-xl border border-white/10 shadow-lg shrink-0"
+          />
+        ) : (
+          <div className="w-16 h-24 rounded-xl bg-gradient-to-tr from-red-600/30 to-purple-600/30 border border-red-500/40 flex items-center justify-center shrink-0">
+            <Clapperboard className="w-7 h-7 text-red-400" />
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 bg-red-950/60 border border-red-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Tv className="w-3 h-3" /> Digital Cinema Hub
+            </span>
+            {movieData?.description && (
+              <span className="text-[11px] text-gray-400">
+                {movieData.description}
+              </span>
+            )}
+          </div>
+
+          <h3 className="text-base font-bold text-white truncate mt-1">
+            {title}
+          </h3>
+
+          <p className="text-xs text-gray-300/80 line-clamp-2 mt-1 leading-relaxed">
+            {movieData?.synopsis || `Stream ${title} directly or launch on your favorite OTT subscription.`}
+          </p>
+        </div>
+      </div>
+
+      {/* Digital Platform Launchers */}
+      <div className="mb-3.5 pt-3 border-t border-white/10">
+        <div className="flex items-center justify-between text-xs mb-2">
+          <span className="text-gray-300 font-medium flex items-center gap-1.5">
+            <MonitorPlay className="w-3.5 h-3.5 text-red-400" /> Stream on Official OTT Platforms:
+          </span>
+          <span className="text-[11px] text-gray-400">1-Click Launch</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          {/* Netflix */}
+          <a
+            href={platforms.netflix}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#E50914] text-white font-bold hover:bg-[#b80710] shadow-md shadow-red-900/30 transition-all hover:scale-[1.02]"
+            title={`Watch ${title} on Netflix`}
+          >
+            <span>Netflix</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+
+          {/* Prime Video */}
+          <a
+            href={platforms.prime}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#00A8E1] text-white font-bold hover:bg-[#0090c2] shadow-md shadow-sky-900/30 transition-all hover:scale-[1.02]"
+            title={`Watch ${title} on Amazon Prime Video`}
+          >
+            <span>Prime Video</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+
+          {/* Disney+ Hotstar */}
+          <a
+            href={platforms.hotstar}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#0c1840] border border-[#1dd2af]/40 text-[#1dd2af] font-bold hover:bg-[#142850] shadow-md transition-all hover:scale-[1.02]"
+            title={`Watch ${title} on Disney+ Hotstar`}
+          >
+            <span>Hotstar</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+
+          {/* JioCinema / Apple TV */}
+          <a
+            href={platforms.jiocinema}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#D9008D] text-white font-bold hover:bg-[#b00072] shadow-md transition-all hover:scale-[1.02]"
+            title={`Watch ${title} on JioCinema`}
+          >
+            <span>JioCinema</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      </div>
+
+      {/* Stream Source Selector */}
+      <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto text-[11px] pb-1">
+        <span className="text-gray-400 shrink-0 font-medium flex items-center gap-1 mr-1">
+          <Radio className="w-3 h-3 text-cyan-400" /> Player Stream:
+        </span>
+        {imdbId && (
+          <>
+            <button
+              onClick={() => setSelectedServer('vidsrc')}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all shrink-0 ${
+                selectedServer === 'vidsrc'
+                  ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
+                  : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
+              }`}
+            >
+              Stream 1 (VidSrc)
+            </button>
+            <button
+              onClick={() => setSelectedServer('autoembed')}
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all shrink-0 ${
+                selectedServer === 'autoembed'
+                  ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
+                  : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
+              }`}
+            >
+              Stream 2 (AutoEmbed)
+            </button>
+          </>
+        )}
+        <button
+          onClick={() => setSelectedServer('trailer')}
+          className={`px-2.5 py-1 rounded-lg font-medium transition-all shrink-0 ${
+            selectedServer === 'trailer'
+              ? 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm'
+              : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white'
+          }`}
+        >
+          🎬 HD Trailer / YouTube
+        </button>
+      </div>
+
+      {/* Player Frame */}
+      {loading ? (
+        <div className="aspect-video w-full rounded-xl bg-black/40 border border-white/5 flex items-center justify-center gap-3 text-sm text-red-400/80 font-mono">
+          <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+          <span>Connecting to movie stream...</span>
+        </div>
+      ) : (
+        <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl">
+          <iframe
+            src={getEmbedUrl()}
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================================
+   2. SONG / MUSIC PLAYER
    ========================================================================= */
 export function SongPlayer({ query }: { query: string }) {
   const [loading, setLoading] = useState(true);
@@ -122,7 +345,7 @@ export function SongPlayer({ query }: { query: string }) {
 }
 
 /* =========================================================================
-   2. VIDEO PLAYER
+   3. VIDEO PLAYER
    ========================================================================= */
 export function VideoPlayer({ query }: { query: string }) {
   const [loading, setLoading] = useState(true);
@@ -200,7 +423,7 @@ export function VideoPlayer({ query }: { query: string }) {
 }
 
 /* =========================================================================
-   3. RETRO SNAKE GAME
+   4. RETRO SNAKE GAME
    ========================================================================= */
 export function SnakeGame() {
   const [score, setScore] = useState(0);
@@ -435,7 +658,7 @@ export function SnakeGame() {
 }
 
 /* =========================================================================
-   4. TIC-TAC-TOE VS NEXORA AI
+   5. TIC-TAC-TOE VS NEXORA AI
    ========================================================================= */
 export function TicTacToeGame() {
   const [board, setBoard] = useState<(string | null)[]>(Array(9).fill(null));
@@ -593,7 +816,7 @@ export function TicTacToeGame() {
 }
 
 /* =========================================================================
-   5. 2048 PUZZLE GAME
+   6. 2048 PUZZLE GAME
    ========================================================================= */
 export function Game2048() {
   const [grid, setGrid] = useState<number[][]>([
@@ -756,7 +979,7 @@ export function Game2048() {
 }
 
 /* =========================================================================
-   6. ARCADE HUB (Multi-game Selector)
+   7. ARCADE HUB (Multi-game Selector)
    ========================================================================= */
 export function ArcadeHub({ initialGame }: { initialGame?: string }) {
   const [activeGame, setActiveGame] = useState<string>(initialGame || 'snake');
@@ -793,9 +1016,12 @@ export function ArcadeHub({ initialGame }: { initialGame?: string }) {
 }
 
 /* =========================================================================
-   7. UNIFIED PLAYABLE MEDIA DISPATCHER
+   8. UNIFIED PLAYABLE MEDIA DISPATCHER
    ========================================================================= */
-export default function PlayableMedia({ type, query, gameName }: PlayableMediaProps) {
+export default function PlayableMedia({ type, query, gameName, platform }: PlayableMediaProps) {
+  if (type === 'movie') {
+    return <MoviePlayer query={query || 'Inception'} targetPlatform={platform} />;
+  }
   if (type === 'song') {
     return <SongPlayer query={query || 'Trending Hit Music'} />;
   }
