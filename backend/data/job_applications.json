@@ -1,0 +1,22 @@
+[
+  {
+    "id": "app-1",
+    "company": "Stripe",
+    "position": "Senior Full-Stack Engineer",
+    "status": "Interviewing",
+    "date": "2026-09-15",
+    "notes": "Technical screen scheduled. Practice system design.",
+    "salary": "$180,000",
+    "url": "https://stripe.com/jobs"
+  },
+  {
+    "id": "app-2",
+    "company": "Vercel",
+    "position": "Next.js AI Platform Specialist",
+    "status": "Applied",
+    "date": "2026-09-17",
+    "notes": "Submitted tailored resume and custom cover letter.",
+    "salary": "$175,000",
+    "url": "https://vercel.com/careers"
+  }
+]
