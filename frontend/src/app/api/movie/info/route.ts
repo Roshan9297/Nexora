@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   // 2. DuckDuckGo search to extract IMDb ID and canonical Wikipedia link
   try {
-    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanTitle + ' movie site:imdb.com OR site:en.wikipedia.org')}`;
+    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanTitle + ' movie imdb')}`;
     const ddgRes = await fetch(ddgUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       for (const m of wikiMatches) {
         const slug = decodeURIComponent(m[1]);
         if (
-          !/filmography|discography|list_of|awards|actor|actress|director|producer/i.test(slug) &&
+          !/filmography|discography|list_of|awards|actor|actress|director/i.test(slug) &&
           (/\b(?:film|movie)\b/i.test(slug) || /\(\d{4}\)/.test(slug))
         ) {
           wikiTitle = slug;
@@ -74,30 +74,28 @@ export async function GET(req: NextRequest) {
       let bestKey: string | null = null;
 
       for (const p of pages) {
-        const keyLower = p.key.toLowerCase();
-        const descLower = (p.description || '').toLowerCase();
-        const combined = `${keyLower} ${descLower}`;
+        const text = (p.key + ' ' + (p.description || '')).toLowerCase().replace(/_/g, ' ');
 
-        const cleanText = combined.replace(/_/g, ' ');
+        // Reject non-films
         if (
-          cleanText.includes('list of') ||
-          cleanText.includes('filmography') ||
-          cleanText.includes('discography') ||
-          cleanText.includes('production') ||
-          (cleanText.includes('actor') && !cleanText.includes('film by')) ||
-          (cleanText.includes('actress') && !cleanText.includes('film by')) ||
-          cleanText.includes('born 19') ||
-          cleanText.includes('born 20')
+          text.includes('list of') ||
+          text.includes('filmography') ||
+          text.includes('discography') ||
+          text.includes('production') ||
+          (text.includes('actor') && !text.includes('film by')) ||
+          (text.includes('actress') && !text.includes('film by')) ||
+          text.includes('born 19') ||
+          text.includes('born 20')
         ) {
           continue;
         }
 
         let score = 0;
-        if (combined.includes('film') || combined.includes('movie')) score += 3;
+        if (text.includes('film') || text.includes('movie')) score += 3;
         if (/\(\d{4}\)/.test(p.key)) score += 2;
 
         for (const token of queryTokens) {
-          if (combined.includes(token)) score += 2;
+          if (text.includes(token)) score += 2;
         }
 
         if (score > bestScore) {
@@ -178,40 +176,49 @@ export async function GET(req: NextRequest) {
     } catch {}
   }
 
-  // 6. Query YouTube in parallel for both the FULL MOVIE stream and official trailer
-  const [fullMovieRes, trailerRes] = await Promise.allSettled([
-    fetch(`https://www.youtube.com/results?search_query=${encodeURIComponent(cleanTitle + ' full movie')}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' },
-      signal: AbortSignal.timeout(3000),
-    }).then((r) => (r.ok ? r.text() : '')),
-    fetch(`https://www.youtube.com/results?search_query=${encodeURIComponent(movieTitle + ' official trailer')}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36' },
-      signal: AbortSignal.timeout(3000),
-    }).then((r) => (r.ok ? r.text() : '')),
-  ]);
-
+  // 6. Query YouTube and parse initialData to accurately separate Full Length Movies from Trailers
   let fullMovieId: string | null = null;
-  if (fullMovieRes.status === 'fulfilled' && fullMovieRes.value) {
-    const m = fullMovieRes.value.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-    if (m) fullMovieId = m[1];
-  }
-
+  let fullMovieDuration: string | null = null;
   let trailerId: string | null = null;
-  if (trailerRes.status === 'fulfilled' && trailerRes.value) {
-    const m = trailerRes.value.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-    if (m) trailerId = m[1];
-  }
 
-  // Direct platform deep links
-  const platforms = {
-    netflix: `https://www.netflix.com/search?q=${encodeURIComponent(movieTitle)}`,
-    prime: `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${encodeURIComponent(movieTitle)}`,
-    hotstar: `https://www.hotstar.com/in/search?q=${encodeURIComponent(movieTitle)}`,
-    jiocinema: `https://www.jiocinema.com/search/${encodeURIComponent(movieTitle)}`,
-    aha: `https://www.aha.video/search?q=${encodeURIComponent(movieTitle)}`,
-    appletv: `https://tv.apple.com/search?term=${encodeURIComponent(movieTitle)}`,
-    youtube: `https://www.youtube.com/results?search_query=${encodeURIComponent(movieTitle + ' full movie')}`,
-  };
+  try {
+    const ytRes = await fetch(`https://www.youtube.com/results?search_query=${encodeURIComponent(cleanTitle + ' full movie')}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      signal: AbortSignal.timeout(3500),
+    });
+    const ytHtml = await ytRes.text();
+    const match = ytHtml.match(/var ytInitialData = ({.*?});<\/script>/);
+
+    if (match) {
+      const data = JSON.parse(match[1]);
+      const contents = data.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
+
+      for (const item of contents) {
+        const v = item.videoRenderer;
+        if (!v) continue;
+        const title = (v.title?.runs?.[0]?.text || '').toLowerCase();
+        const duration = v.lengthText?.simpleText || '';
+        const id = v.videoId;
+
+        const isTrailerOrClip = title.includes('trailer') || title.includes('teaser') || title.includes('promo') || title.includes('glimpse') || title.includes('scene') || title.includes('review') || title.includes('song');
+        const isLongPlay = duration.includes(':') && (duration.split(':').length === 3 || parseInt(duration.split(':')[0], 10) >= 40);
+
+        if (!isTrailerOrClip && isLongPlay && !fullMovieId) {
+          fullMovieId = id;
+          fullMovieDuration = duration;
+        }
+        if ((isTrailerOrClip || !isLongPlay) && !trailerId) {
+          trailerId = id;
+        }
+      }
+    }
+
+    // Fallback if regex match was empty
+    if (!trailerId) {
+      const m = ytHtml.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
+      if (m) trailerId = m[1];
+    }
+  } catch {}
 
   return NextResponse.json({
     success: true,
@@ -219,10 +226,10 @@ export async function GET(req: NextRequest) {
     cleanTitle,
     description,
     poster,
-    synopsis: synopsis || `Stream ${movieTitle} in HD directly or launch across official OTT platforms.`,
+    synopsis: synopsis || `Stream ${movieTitle} in full HD across unrestricted digital cinema servers.`,
     imdbId,
     fullMovieId,
+    fullMovieDuration,
     trailerId,
-    platforms,
   });
 }
