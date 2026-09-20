@@ -227,59 +227,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* 3. Section: Pinned */}
-        <div className="space-y-1 pt-2">
-          <p className="text-[11px] font-semibold text-[#8e8e8e] px-2.5">Pinned</p>
-          <div className="space-y-0.5">
-            <button
-              onClick={() => setActiveAgent('coding')}
-              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#ececec] hover:bg-[#212121] transition-colors"
-            >
-              <Folder className="w-4 h-4 text-[#8e8e8e]" />
-              <span className="truncate">Dotnet</span>
-            </button>
-
-            <button
-              onClick={() => setActiveAgent('jobs')}
-              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#ececec] hover:bg-[#212121] transition-colors"
-            >
-              <Folder className="w-4 h-4 text-[#8e8e8e]" />
-              <span className="truncate">Interview questions</span>
-            </button>
-
-            <button
-              onClick={() => setActiveAgent('email')}
-              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#ececec] hover:bg-[#212121] transition-colors"
-            >
-              <MessageSquare className="w-4 h-4 text-[#8e8e8e]" />
-              <span className="truncate">Resignation Letter Update</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 4. Section: Projects */}
-        <div className="space-y-1 pt-2">
-          <p className="text-[11px] font-semibold text-[#8e8e8e] px-2.5">Projects</p>
-          <div className="space-y-0.5">
-            <button
-              onClick={() => setActiveAgent('jobs')}
-              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#ececec] hover:bg-[#212121] transition-colors"
-            >
-              <Folder className="w-4 h-4 text-[#8e8e8e]" />
-              <span className="truncate">JD Tailor Resume</span>
-            </button>
-
-            <button
-              onClick={() => setActiveAgent('coding')}
-              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[#ececec] hover:bg-[#212121] transition-colors"
-            >
-              <Folder className="w-4 h-4 text-[#8e8e8e]" />
-              <span className="truncate">Projects</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 5. Section: Chats */}
+        {/* 3. Section: Chats */}
         <div className="space-y-1 pt-2">
           <p className="text-[11px] font-semibold text-[#8e8e8e] px-2.5">Chats</p>
           <div className="space-y-0.5">
