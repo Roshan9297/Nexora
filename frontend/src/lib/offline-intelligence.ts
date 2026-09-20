@@ -106,7 +106,33 @@ export function generateOfflineResponse(
     };
   }
 
-  // 2. Greetings & Identity (Siri-like quick charm)
+  // 2. Language Switch & Conversation in Telugu
+  const isTeluguLanguageRequest =
+    /\b(?:telugu|telugulo|matladu|matladandi|cheppu|cheppandi)\b/i.test(lower) ||
+    /[\u0C00-\u0C7F]/.test(q) ||
+    /talk\s+(?:to\s+me\s+|with\s+me\s+)?in\s+telugu/i.test(lower) ||
+    /speak\s+(?:to\s+me\s+)?in\s+telugu/i.test(lower);
+
+  if (isTeluguLanguageRequest) {
+    let teluguReply = "నమస్కారం! తప్పకుండా, నేను మీతో తెలుగులోనే మాట్లాడతాను. 😊\n\nనేను మీ **ఫైజా (Faiza)**. మీకు ఏ సమాచారం కావాలన్నా, సినిమాలు, పాటలు, లేదా కోడింగ్ గురించి ఏమైనా అడగండి. నేను మీకు సహాయం చేయడానికి సిద్ధంగా ఉన్నాను!";
+    
+    if (/ela\s+unnaru|bagunnara/i.test(lower)) {
+      teluguReply = "నేను చాలా బాగున్నాను, ధన్యవాదాలు! మీరు ఎలా ఉన్నారు? ఈరోజు నేను మీకు ఎలా సహాయపడగలను?";
+    } else if (/mee\s+peru|ni\s+peru|neevu\s+evaru|who\s+are\s+you/i.test(lower)) {
+      teluguReply = "నా పేరు **ఫైజా (Faiza)**! నేను మీ పర్సనల్ AI వాయిస్ అసిస్టెంట్‌ని. నాతో మీరు తెలుగులో లేదా ఇంగ్లీష్‌లో హ్యాపీగా మాట్లాడవచ్చు.";
+    } else if (/em\s+chestunnav|em\s+cheptav/i.test(lower)) {
+      teluguReply = "నేను మీకు సహాయం చేయడానికి ఎల్లప్పుడూ సిద్ధంగా ఉంటాను! మీకు నచ్చిన పాటలు, సినిమాలు ప్లే చేయగలను లేదా ఏవైనా ప్రశ్నలకు సమాధానాలు ఇవ్వగలను.";
+    }
+
+    return {
+      thought: reasoningMode
+        ? `User requested conversation in Telugu: "${q}".\nResponding in fluent, warm, conversational Telugu as Faiza.`
+        : undefined,
+      content: teluguReply,
+    };
+  }
+
+  // 3. Greetings & Identity (Siri-like quick charm)
   if (/^(hi|hello|hey|greetings|hola|namaste|namaskaram|yo|good\s+(?:morning|afternoon|evening))\b/i.test(lower)) {
     const isTeluguGreeting = /namaskaram|ela\s+unnaru|bagunnara/i.test(lower);
     return {
@@ -123,6 +149,14 @@ export function generateOfflineResponse(
     return {
       thought: reasoningMode ? "Answering identity question with iPhone Siri wit and charm." : undefined,
       content: `I'm **Faiza (ఫైజా)**. Think of me as your personal Siri with extra superpowers. ✨\n\nI can speak in **English**, **Telugu (తెలుగు)**, help you code, queue movies and songs, answer questions, or just chat whenever you like. What's on your mind?`,
+    };
+  }
+
+  // Conversational chit-chat (Siri style)
+  if (/how\s+are\s+you|how's\s+it\s+going|how\s+r\s+u/i.test(lower)) {
+    return {
+      thought: reasoningMode ? "User asked how assistant is doing. Responding with friendly Siri charm." : undefined,
+      content: `I'm doing great, thanks for asking! Ready to help you with whatever you need. How are you doing?`,
     };
   }
 
@@ -251,11 +285,11 @@ export function generateOfflineResponse(
     };
   }
 
-  // 5. Intelligent General Fallback
+  // 5. Intelligent Conversational Fallback (Faiza Siri Persona)
   return {
     thought: reasoningMode
-      ? `Analyzing user prompt: "${q}".\nSynthesizing core concepts and generating a structured, high-clarity response.`
+      ? `Analyzing user prompt: "${q}".\nSynthesizing warm, helpful Siri-style response.`
       : undefined,
-    content: `### 💡 Analysis & Response\n\nRegarding your inquiry: **"${q}"**\n\nHere is a clear breakdown:\n\n1. **Core Concept**: Understanding the key parameters and context of your inquiry is the first step toward finding an effective answer or solution.\n2. **Practical Application**: In real-world scenarios, breaking this down into modular, repeatable steps ensures reliable outcomes.\n3. **Recommended Next Steps**:\n   - Specify the exact domain or context if you need custom code, explanations, or analysis.\n   - Try asking for code examples, diagrams, or step-by-step guides.\n   - If you want entertainment or gaming, you can also ask to **play games** (Snake, 2048, Tic-Tac-Toe), **play movies**, or **stream anime** anytime!\n\n*(NEXORA Offline Mode Active: Instant answers, reasoning, and offline arcade are fully available without internet).*`,
+    content: `I'm on it! I heard you say **"${q}"**.\n\nHere are some things I can do for you right now:\n- 💬 **Chat with me**: Speak or type in **English** or **Telugu (తెలుగు)**.\n- 🎵 **Play Music & Songs**: Ask me to play any song or track.\n- 🎬 **Watch Movies & Anime**: Ask to stream any movie, anime, or series.\n- 🕹️ **Play Games**: Say "play snake" or "play 2048".\n\nHow would you like to proceed?`,
   };
 }
