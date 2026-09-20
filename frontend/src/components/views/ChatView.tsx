@@ -185,18 +185,27 @@ export const ChatView: React.FC<ChatViewProps> = ({
     recognition.start();
   };
 
-  // Faiza Text-to-Speech (Natural Girl's Voice with English & Telugu support)
+  // Active audio element ref for remote neural TTS (Telugu / regional languages)
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
+  // Faiza Text-to-Speech (Natural Girl's Voice with English & Universal Telugu Support)
   const speakText = (text: string, msgId?: string) => {
-    if (!('speechSynthesis' in window)) return;
-    
     // If already speaking this message, toggle stop
     if (speakingId && msgId && speakingId === msgId) {
-      window.speechSynthesis.cancel();
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       setSpeakingId(null);
       return;
     }
 
-    window.speechSynthesis.cancel();
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     if (msgId) setSpeakingId(msgId);
 
     // Clean out markdown symbols and media tags for clear speech
@@ -208,48 +217,74 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
     if (!cleanText) return;
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    const voices = window.speechSynthesis.getVoices();
     const hasTelugu = isTeluguText(cleanText) || voiceLang === 'te-IN';
 
-    // Prioritize natural female voices for Faiza
-    let selectedVoice = null;
-
+    // 1. If text is in Telugu or user selected Telugu mode:
+    // Play directly via our high-fidelity Telugu Neural TTS engine
+    // (Bypasses Windows/Browser limitations where Telugu TTS voice packs are missing)
     if (hasTelugu) {
-      utterance.lang = 'te-IN';
-      // Find Telugu female voice or Indian female voice
-      selectedVoice = voices.find(
-        (v) => (v.lang.startsWith('te') || v.lang === 'te-IN') &&
-               (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('swara') || v.name.toLowerCase().includes('geeta') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('natural'))
-      ) || voices.find((v) => v.lang.startsWith('te') || v.lang === 'te-IN')
-        || voices.find((v) => (v.lang === 'en-IN' || v.lang === 'hi-IN') && (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('swara') || v.name.toLowerCase().includes('neerja')));
-    } else {
-      utterance.lang = 'en-US';
-      // Apple Siri voice matching: On Apple/iOS/macOS, "Samantha" / "Siri" is the actual iPhone Siri voice
-      // On Windows/Edge/Chrome, Microsoft "Jenny Natural", "Aria Online", "Zira" offer identical Siri-grade clarity
-      selectedVoice = voices.find(
+      try {
+        const audio = new Audio(`/api/tts?lang=te&text=${encodeURIComponent(cleanText.slice(0, 400))}`);
+        audioPlayerRef.current = audio;
+        audio.onended = () => {
+          setSpeakingId(null);
+          audioPlayerRef.current = null;
+        };
+        audio.onerror = () => {
+          // Fallback to browser synthesis if network audio fails
+          if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'te-IN';
+            utterance.pitch = 1.1;
+            utterance.rate = 1.0;
+            utterance.onend = () => setSpeakingId(null);
+            utterance.onerror = () => setSpeakingId(null);
+            window.speechSynthesis.speak(utterance);
+          } else {
+            setSpeakingId(null);
+          }
+        };
+        audio.play().catch(() => {
+          setSpeakingId(null);
+        });
+        return;
+      } catch {
+        // Continue to Web Speech API fallback
+      }
+    }
+
+    // 2. For English: Use Apple Siri / Microsoft Jenny natural female voice
+    if (!('speechSynthesis' in window)) return;
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    const voices = window.speechSynthesis.getVoices();
+
+    utterance.lang = 'en-US';
+    const selectedVoice =
+      voices.find(
         (v) =>
           v.name.toLowerCase().includes('siri') ||
           v.name.toLowerCase().includes('samantha')
-      ) || voices.find(
+      ) ||
+      voices.find(
         (v) =>
           (v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('neural')) &&
           (v.name.toLowerCase().includes('jenny') || v.name.toLowerCase().includes('aria') || v.name.toLowerCase().includes('sonia'))
-      ) || voices.find(
+      ) ||
+      voices.find(
         (v) =>
-          (v.lang.startsWith('en')) &&
+          v.lang.startsWith('en') &&
           (v.name.toLowerCase().includes('female') ||
-           v.name.toLowerCase().includes('zira') ||
-           v.name.toLowerCase().includes('victoria') ||
-           v.name.toLowerCase().includes('karen'))
-      ) || voices.find((v) => v.lang.startsWith('en'));
-    }
+            v.name.toLowerCase().includes('zira') ||
+            v.name.toLowerCase().includes('victoria') ||
+            v.name.toLowerCase().includes('karen'))
+      ) ||
+      voices.find((v) => v.lang.startsWith('en'));
 
     if (selectedVoice) {
       utterance.voice = selectedVoice;
     }
 
-    // iPhone Siri style vocal cadence: crisp, clear, moderate rate and authentic friendly pitch
+    // iPhone Siri style vocal cadence
     utterance.pitch = 1.08;
     utterance.rate = 1.05;
 

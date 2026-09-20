@@ -50,17 +50,25 @@ export const FaizaVoiceAgentView: React.FC<FaizaVoiceAgentViewProps> = ({ settin
   // Helper: Detect Telugu script
   const isTeluguText = (text: string) => /[\u0C00-\u0C7F]/.test(text);
 
-  // Faiza Text-to-Speech (ChatGPT / Siri style Voice Orb)
-  const speakText = (text: string, msgId?: string) => {
-    if (!('speechSynthesis' in window)) return;
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
+  // Faiza Text-to-Speech (ChatGPT / Siri style Voice Orb with Universal Telugu support)
+  const speakText = (text: string, msgId?: string) => {
     if (speakingId && msgId && speakingId === msgId) {
-      window.speechSynthesis.cancel();
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       setSpeakingId(null);
       return;
     }
 
-    window.speechSynthesis.cancel();
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     if (msgId) setSpeakingId(msgId);
 
     const cleanText = text
@@ -71,52 +79,67 @@ export const FaizaVoiceAgentView: React.FC<FaizaVoiceAgentViewProps> = ({ settin
 
     if (!cleanText) return;
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    const voices = window.speechSynthesis.getVoices();
     const hasTelugu = isTeluguText(cleanText) || voiceLang === 'te-IN';
 
-    let selectedVoice = null;
+    // 1. Play directly via Neural Telugu TTS Engine (Bypasses missing Windows Telugu voice pack)
     if (hasTelugu) {
-      utterance.lang = 'te-IN';
-      selectedVoice =
-        voices.find(
-          (v) =>
-            (v.lang.startsWith('te') || v.lang === 'te-IN') &&
-            (v.name.toLowerCase().includes('female') ||
-              v.name.toLowerCase().includes('swara') ||
-              v.name.toLowerCase().includes('natural'))
-        ) ||
-        voices.find((v) => v.lang.startsWith('te') || v.lang === 'te-IN') ||
-        voices.find(
-          (v) =>
-            (v.lang === 'en-IN' || v.lang === 'hi-IN') &&
-            (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('swara'))
-        );
-    } else {
-      utterance.lang = 'en-US';
-      selectedVoice =
-        voices.find(
-          (v) =>
-            v.name.toLowerCase().includes('siri') ||
-            v.name.toLowerCase().includes('samantha')
-        ) ||
-        voices.find(
-          (v) =>
-            (v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('neural')) &&
-            (v.name.toLowerCase().includes('jenny') ||
-              v.name.toLowerCase().includes('aria') ||
-              v.name.toLowerCase().includes('sonia'))
-        ) ||
-        voices.find(
-          (v) =>
-            v.lang.startsWith('en') &&
-            (v.name.toLowerCase().includes('female') ||
-              v.name.toLowerCase().includes('zira') ||
-              v.name.toLowerCase().includes('victoria') ||
-              v.name.toLowerCase().includes('karen'))
-        ) ||
-        voices.find((v) => v.lang.startsWith('en'));
+      try {
+        const audio = new Audio(`/api/tts?lang=te&text=${encodeURIComponent(cleanText.slice(0, 400))}`);
+        audioPlayerRef.current = audio;
+        audio.onended = () => {
+          setSpeakingId(null);
+          audioPlayerRef.current = null;
+        };
+        audio.onerror = () => {
+          if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'te-IN';
+            utterance.pitch = 1.1;
+            utterance.rate = 1.0;
+            utterance.onend = () => setSpeakingId(null);
+            utterance.onerror = () => setSpeakingId(null);
+            window.speechSynthesis.speak(utterance);
+          } else {
+            setSpeakingId(null);
+          }
+        };
+        audio.play().catch(() => {
+          setSpeakingId(null);
+        });
+        return;
+      } catch {
+        // Fallback
+      }
     }
+
+    // 2. English Siri / ChatGPT Voice
+    if (!('speechSynthesis' in window)) return;
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    const voices = window.speechSynthesis.getVoices();
+
+    utterance.lang = 'en-US';
+    const selectedVoice =
+      voices.find(
+        (v) =>
+          v.name.toLowerCase().includes('siri') ||
+          v.name.toLowerCase().includes('samantha')
+      ) ||
+      voices.find(
+        (v) =>
+          (v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('neural')) &&
+          (v.name.toLowerCase().includes('jenny') ||
+            v.name.toLowerCase().includes('aria') ||
+            v.name.toLowerCase().includes('sonia'))
+      ) ||
+      voices.find(
+        (v) =>
+          v.lang.startsWith('en') &&
+          (v.name.toLowerCase().includes('female') ||
+            v.name.toLowerCase().includes('zira') ||
+            v.name.toLowerCase().includes('victoria') ||
+            v.name.toLowerCase().includes('karen'))
+      ) ||
+      voices.find((v) => v.lang.startsWith('en'));
 
     if (selectedVoice) utterance.voice = selectedVoice;
     utterance.pitch = 1.08;
