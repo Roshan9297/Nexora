@@ -19,6 +19,7 @@ import { JobSuiteView } from '@/components/views/JobSuiteView';
 import { EmailView } from '@/components/views/EmailView';
 import { CalendarView } from '@/components/views/CalendarView';
 import { AutomationView } from '@/components/views/AutomationView';
+import { FaizaVoiceAgentView } from '@/components/views/FaizaVoiceAgentView';
 
 const INITIAL_SESSIONS: ChatSession[] = [
   {
@@ -267,7 +268,7 @@ export default function Home() {
 
         {/* Dynamic Agent Views */}
         <main className="flex-1 overflow-hidden flex flex-col bg-[#212121]">
-          {(activeAgent === 'chat' || activeAgent === 'reasoning' || activeAgent === 'voice') && (
+          {(activeAgent === 'chat' || activeAgent === 'reasoning') && (
             <ChatView
               settings={settings}
               reasoningMode={activeAgent === 'reasoning' || reasoningMode}
@@ -276,6 +277,7 @@ export default function Home() {
             />
           )}
 
+          {activeAgent === 'voice' && <FaizaVoiceAgentView settings={settings} />}
           {activeAgent === 'coding' && <CodingView settings={settings} />}
           {activeAgent === 'document' && <DocumentView settings={settings} />}
           {activeAgent === 'search' && <SearchView settings={settings} />}
