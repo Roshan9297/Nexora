@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { uploadDocument } from '@/lib/api';
 import PlayableMedia from '@/components/media/PlayableMedia';
+import { mediaManager } from '@/lib/mediaManager';
 
 function extractPlayableMedia(content: string, userPrompt?: string) {
   if (!content && !userPrompt) return null;
@@ -466,6 +467,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
           )
         );
       }
+
+      // If user explicitly prompted to play/stream media, auto-play this newly generated item in live session
+      const finalMedia = extractPlayableMedia(accumulated, userPrompt);
+      if (finalMedia && /play|watch|stream|sing|song|movie|video|trailer|listen/i.test(userPrompt)) {
+        const generatedMediaId = `media-${assistantMsgId}`;
+        mediaManager.play(generatedMediaId);
+      }
     } catch (err: any) {
       setMessages((prev) =>
         prev.map((msg) =>
@@ -593,6 +601,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         {mediaItem && (
                           <div className="mb-3">
                             <PlayableMedia
+                              mediaId={`media-${msg.id}`}
                               type={mediaItem.type}
                               query={mediaItem.query}
                               gameName={mediaItem.gameName}

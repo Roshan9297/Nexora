@@ -21,6 +21,7 @@ import { EmailView } from '@/components/views/EmailView';
 import { CalendarView } from '@/components/views/CalendarView';
 import { AutomationView } from '@/components/views/AutomationView';
 import { FaizaVoiceAgentView } from '@/components/views/FaizaVoiceAgentView';
+import { mediaManager } from '@/lib/mediaManager';
 
 const INITIAL_SESSIONS: ChatSession[] = [
   {
@@ -203,6 +204,7 @@ export default function Home() {
   };
 
   const handleNewChat = () => {
+    mediaManager.stopAll();
     const newSession: ChatSession = {
       id: `session-${Date.now()}`,
       title: 'New chat',
@@ -215,10 +217,14 @@ export default function Home() {
   };
 
   const handleSelectSession = (id: string) => {
+    if (id !== activeSessionId) {
+      mediaManager.stopAll();
+    }
     setActiveSessionId(id);
   };
 
   const handleDeleteSession = (id: string) => {
+    mediaManager.stopAll();
     const filtered = sessions.filter((s) => s.id !== id);
     const fallback = filtered.length > 0 ? filtered[0] : null;
     if (!fallback) {
@@ -241,6 +247,7 @@ export default function Home() {
   };
 
   const handleClearSession = () => {
+    mediaManager.stopAll();
     setMessages([]);
   };
 

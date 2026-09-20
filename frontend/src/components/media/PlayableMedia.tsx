@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, Layers, ArrowUp, ArrowDown, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { mediaManager } from '@/lib/mediaManager';
 
 export interface PlayableMediaProps {
   type: 'song' | 'video' | 'game' | 'movie' | 'series';
@@ -15,6 +16,8 @@ export interface PlayableMediaProps {
   platform?: 'netflix' | 'prime' | 'hotstar' | 'all';
   season?: number;
   episode?: number;
+  mediaId?: string;
+  autoPlay?: boolean;
 }
 
 /* =========================================================================
@@ -24,18 +27,35 @@ export function MoviePlayer({
   query, 
   targetPlatform,
   initialSeason = 1,
-  initialEpisode = 1 
+  initialEpisode = 1,
+  mediaId,
+  autoPlay = false
 }: { 
   query: string; 
   targetPlatform?: string;
   initialSeason?: number;
   initialEpisode?: number;
+  mediaId?: string;
+  autoPlay?: boolean;
 }) {
+  const id = mediaId || `movie-${encodeURIComponent(query)}`;
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [hasPlayedBefore, setHasPlayedBefore] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [movieData, setMovieData] = useState<any>(null);
   const [selectedServer, setSelectedServer] = useState<'server1' | 'server2'>('server1');
   const [season, setSeason] = useState(initialSeason);
   const [episode, setEpisode] = useState(initialEpisode);
+
+  // Synchronize with Global Media Coordinator
+  useEffect(() => {
+    const unsubscribe = mediaManager.subscribe((activeId) => {
+      const active = activeId === id;
+      setIsPlaying(active);
+      if (active) setHasPlayedBefore(true);
+    });
+    return unsubscribe;
+  }, [id]);
 
   // Prevent unwanted popup redirects from third-party players
   useEffect(() => {
@@ -70,6 +90,10 @@ export function MoviePlayer({
           if (data.requestedEpisode) setEpisode(data.requestedEpisode);
           setSelectedServer('server1');
           setLoading(false);
+          // Only autoPlay if explicitly requested during this live session
+          if (autoPlay && mediaManager.isLiveInitiated(id)) {
+            mediaManager.play(id);
+          }
         }
       })
       .catch(() => {
@@ -79,7 +103,15 @@ export function MoviePlayer({
     return () => {
       isMounted = false;
     };
-  }, [query]);
+  }, [query, id, autoPlay]);
+
+  const handlePlay = () => {
+    mediaManager.play(id);
+  };
+
+  const handlePause = () => {
+    mediaManager.pause(id);
+  };
 
   const imdbId = movieData?.imdbId;
   const tmdbId = movieData?.tmdbId;
@@ -87,46 +119,31 @@ export function MoviePlayer({
 
   // If the resolved media is actually a song or music single, delegate seamlessly to SongPlayer!
   if (movieData?.mediaType === 'song' || /\b(?:single\s+by|song\s+by|music\s+video)\b/i.test(movieData?.description || '')) {
-    return <SongPlayer query={movieData?.title || query} />;
+    return <SongPlayer query={movieData?.title || query} mediaId={id} autoPlay={autoPlay} />;
   }
 
-  // Use resolved IMDb or TMDb ID. NEVER fall back to hardcoded Inception (tt1375666)!
+  // Use resolved IMDb or TMDb ID
   const targetId = isSeries ? tmdbId || imdbId : imdbId || tmdbId;
   const title = movieData?.title || query;
 
   const getEmbedUrl = () => {
-    // If no stream ID was resolved, stream the verified video / stream directly via YouTube
     if (!targetId) {
-      return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query + (isSeries ? ' anime full episode 1' : ' full movie'))}&autoplay=1`;
+      return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query + (isSeries ? ' anime full episode 1' : ' full movie'))}&autoplay=1&enablejsapi=1`;
     }
 
     if (isSeries) {
-      // 2 Dedicated Series / Anime Streaming Servers
       if (selectedServer === 'server1') {
-        // VidLink TV (Server 1: Ad-Free, No Redirects, Dub & Sub)
         if (tmdbId) {
-          return `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=06b6d4&autoplay=false`;
+          return `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=06b6d4&autoplay=true`;
         }
         return `https://www.2embed.cc/embedtv/${imdbId || targetId}&s=${season}&e=${episode}`;
       }
-      if (selectedServer === 'server2') {
-        // 2Embed TV (Server 2: Alternate Mirror)
-        return `https://www.2embed.cc/embedtv/${imdbId || tmdbId || targetId}&s=${season}&e=${episode}`;
-      }
-      return tmdbId
-        ? `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=06b6d4&autoplay=false`
-        : `https://www.2embed.cc/embedtv/${imdbId || targetId}&s=${season}&e=${episode}`;
+      return `https://www.2embed.cc/embedtv/${imdbId || tmdbId || targetId}&s=${season}&e=${episode}`;
     } else {
-      // 2 Dedicated Movie Streaming Servers
       if (selectedServer === 'server1') {
-        // VidLink Movie (Server 1: Clean HD Stream, No Redirects)
-        return `https://vidlink.pro/movie/${tmdbId || imdbId || targetId}?primaryColor=06b6d4&autoplay=false`;
+        return `https://vidlink.pro/movie/${tmdbId || imdbId || targetId}?primaryColor=06b6d4&autoplay=true`;
       }
-      if (selectedServer === 'server2') {
-        // 2Embed Movie (Server 2: Alternate Mirror)
-        return `https://www.2embed.cc/embed/${imdbId || tmdbId || targetId}`;
-      }
-      return `https://vidlink.pro/movie/${tmdbId || imdbId || targetId}?primaryColor=06b6d4&autoplay=false`;
+      return `https://www.2embed.cc/embed/${imdbId || tmdbId || targetId}`;
     }
   };
 
@@ -152,7 +169,7 @@ export function MoviePlayer({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400'}`} />
               {isSeries ? 'Anime / TV Series Stream' : 'Full Movie Streaming'}
             </span>
             {isSeries && (
@@ -160,11 +177,15 @@ export function MoviePlayer({
                 S{season} : E{episode}
               </span>
             )}
-            {movieData?.description && (
-              <span className="text-[11px] text-gray-400 truncate max-w-xs">
-                {movieData.description}
+            {isPlaying ? (
+              <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/50 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                ▶️ Playing
               </span>
-            )}
+            ) : hasPlayedBefore ? (
+              <span className="text-[10px] font-mono text-amber-300 bg-amber-950/50 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                ⏸️ Paused (Ready to Resume)
+              </span>
+            ) : null}
           </div>
 
           <h3 className="text-base font-bold text-white truncate mt-1">
@@ -174,6 +195,29 @@ export function MoviePlayer({
           <p className="text-xs text-gray-300/85 line-clamp-2 mt-1 leading-relaxed">
             {movieData?.synopsis || `Stream ${title} directly in HD across digital servers.`}
           </p>
+        </div>
+
+        {/* Play / Pause Toggle in Header */}
+        <div className="shrink-0 flex items-center gap-1.5">
+          {isPlaying ? (
+            <button
+              onClick={handlePause}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-medium flex items-center gap-1 hover:bg-amber-500/30 transition-colors"
+              title="Pause Stream"
+            >
+              <Pause className="w-3.5 h-3.5" />
+              <span>Pause</span>
+            </button>
+          ) : (
+            <button
+              onClick={handlePlay}
+              className="px-2.5 py-1 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs font-semibold flex items-center gap-1 hover:bg-cyan-500/30 transition-colors"
+              title={hasPlayedBefore ? "Resume Stream" : "Play Stream"}
+            >
+              <Play className="w-3.5 h-3.5 fill-cyan-300" />
+              <span>{hasPlayedBefore ? 'Resume' : 'Play'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -263,13 +307,13 @@ export function MoviePlayer({
         </button>
       </div>
 
-      {/* Video Player Frame with Anti-Redirect Protection */}
+      {/* Video Player Frame with Anti-Redirect Protection & Play/Pause State */}
       {loading ? (
         <div className="aspect-video w-full rounded-xl bg-black/50 border border-white/5 flex items-center justify-center gap-3 text-sm text-cyan-400/80 font-mono">
           <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
           <span>Connecting to stream...</span>
         </div>
-      ) : (
+      ) : isPlaying ? (
         <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl">
           <iframe
             src={getEmbedUrl()}
@@ -278,13 +322,41 @@ export function MoviePlayer({
             allowFullScreen
           />
         </div>
+      ) : (
+        /* Paused / Non-Playing Card (Ensures ZERO autoplay on refresh and pause when switching) */
+        <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/80 border border-white/10 shadow-2xl flex items-center justify-center group">
+          {movieData?.poster && (
+            <img
+              src={movieData.poster}
+              alt={title}
+              className="absolute inset-0 w-full h-full object-cover opacity-25 filter blur-xs group-hover:opacity-35 transition-opacity"
+            />
+          )}
+          <div className="relative z-10 flex flex-col items-center gap-3 p-4 text-center">
+            <button
+              onClick={handlePlay}
+              className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 hover:scale-110 active:scale-95 transition-all text-white"
+              title={hasPlayedBefore ? "Resume Stream" : "Start Stream"}
+            >
+              <Play className="w-8 h-8 fill-white ml-1" />
+            </button>
+            <div>
+              <p className="text-sm font-bold text-white">
+                {hasPlayedBefore ? 'Stream Paused' : 'Ready to Stream'}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {hasPlayedBefore ? 'Click to continue watching' : 'Click Play to stream cinema in HD'}
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Help note if a server plays an alternate stream */}
+      {/* Help note */}
       <div className="mt-2.5 flex items-center justify-between text-[11px] text-gray-400 px-1">
         <span className="flex items-center gap-1.5 text-gray-400">
           <Clapperboard className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-          <span>If any server plays an alternate title or trailer, switch between Server 1 and Server 2 above.</span>
+          <span>Only one media item plays at a time. Starting another stops the previous one.</span>
         </span>
         <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">Anti-Redirect Active</span>
       </div>
@@ -295,11 +367,32 @@ export function MoviePlayer({
 /* =========================================================================
    2. SONG / MUSIC PLAYER
    ========================================================================= */
-export function SongPlayer({ query }: { query: string }) {
+export function SongPlayer({ 
+  query, 
+  mediaId, 
+  autoPlay = false 
+}: { 
+  query: string; 
+  mediaId?: string; 
+  autoPlay?: boolean; 
+}) {
+  const id = mediaId || `song-${encodeURIComponent(query)}`;
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [hasPlayedBefore, setHasPlayedBefore] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [embedUrl, setEmbedUrl] = useState<string>('');
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [showVideo, setShowVideo] = useState(false);
+
+  // Synchronize with Global Media Coordinator
+  useEffect(() => {
+    const unsubscribe = mediaManager.subscribe((activeId) => {
+      const active = activeId === id;
+      setIsPlaying(active);
+      if (active) setHasPlayedBefore(true);
+    });
+    return unsubscribe;
+  }, [id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -308,43 +401,67 @@ export function SongPlayer({ query }: { query: string }) {
     fetch(`/api/media/search?q=${encodeURIComponent(query)}&type=song`)
       .then((res) => res.json())
       .then((data) => {
-        if (isMounted && data.embedUrl) {
-          setEmbedUrl(data.embedUrl);
+        if (isMounted) {
+          if (data.embedUrl) setEmbedUrl(data.embedUrl);
+          if (data.thumbnail) setThumbnail(data.thumbnail);
           setLoading(false);
+          // Only autoPlay if explicitly requested during this live session
+          if (autoPlay && mediaManager.isLiveInitiated(id)) {
+            mediaManager.play(id);
+          }
         }
       })
       .catch(() => {
         if (isMounted) {
-          setEmbedUrl(`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=1`);
+          setEmbedUrl(`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query)}&enablejsapi=1`);
           setLoading(false);
+          if (autoPlay && mediaManager.isLiveInitiated(id)) {
+            mediaManager.play(id);
+          }
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [query]);
+  }, [query, id, autoPlay]);
+
+  const handlePlay = () => {
+    mediaManager.play(id);
+  };
+
+  const handlePause = () => {
+    mediaManager.pause(id);
+  };
+
+  const activeIframeSrc = embedUrl
+    ? `${embedUrl}${embedUrl.includes('?') ? '&' : '?'}autoplay=1`
+    : '';
 
   return (
     <div className="my-3 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-[#0c101c] via-[#101726] to-[#0a0e1a] p-4 shadow-xl shadow-cyan-950/20 max-w-xl">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center shrink-0 shadow-md shadow-cyan-500/20">
-            <Music className="w-5 h-5 text-white animate-pulse" />
+            <Music className={`w-5 h-5 text-white ${isPlaying ? 'animate-pulse' : ''}`} />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full">
                 NEXORA Audio
               </span>
-              {isPlaying && (
+              {isPlaying ? (
                 <div className="flex items-end gap-0.5 h-3">
                   <span className="w-0.5 bg-cyan-400 animate-pulse h-2"></span>
                   <span className="w-0.5 bg-blue-400 animate-pulse h-3"></span>
                   <span className="w-0.5 bg-purple-400 animate-pulse h-1.5"></span>
                   <span className="w-0.5 bg-emerald-400 animate-pulse h-2.5"></span>
                 </div>
-              )}
+              ) : hasPlayedBefore ? (
+                <span className="text-[10px] font-mono text-amber-300 bg-amber-950/50 border border-amber-500/30 px-1.5 py-0.2 rounded">
+                  Paused
+                </span>
+              ) : null}
             </div>
             <h4 className="text-sm font-semibold text-white truncate mt-0.5">
               {query || 'Playing Music Track'}
@@ -353,6 +470,26 @@ export function SongPlayer({ query }: { query: string }) {
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {isPlaying ? (
+            <button
+              onClick={handlePause}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-medium flex items-center gap-1 hover:bg-amber-500/30 transition-colors"
+              title="Pause Song"
+            >
+              <Pause className="w-3.5 h-3.5" />
+              <span>Pause</span>
+            </button>
+          ) : (
+            <button
+              onClick={handlePlay}
+              className="px-2.5 py-1 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs font-semibold flex items-center gap-1 hover:bg-cyan-500/30 transition-colors"
+              title={hasPlayedBefore ? "Resume Track" : "Play Track"}
+            >
+              <Play className="w-3.5 h-3.5 fill-cyan-300" />
+              <span>{hasPlayedBefore ? 'Resume' : 'Play'}</span>
+            </button>
+          )}
+
           <button
             onClick={() => setShowVideo(!showVideo)}
             className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
@@ -381,15 +518,52 @@ export function SongPlayer({ query }: { query: string }) {
           <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
           <span>Tuning into stream...</span>
         </div>
-      ) : (
+      ) : isPlaying ? (
         <div className="relative rounded-xl overflow-hidden bg-black/60 border border-white/10">
           <div className={showVideo ? 'aspect-video w-full' : 'h-20 w-full'}>
             <iframe
-              src={embedUrl}
+              src={activeIframeSrc}
               className="w-full h-full"
               allow="autoplay; encrypted-media; picture-in-picture"
               allowFullScreen
             />
+          </div>
+        </div>
+      ) : (
+        /* Paused / Non-Playing Card (Ensures ZERO autoplay on refresh and pause when switching) */
+        <div className="relative h-24 rounded-xl overflow-hidden bg-black/70 border border-white/10 flex items-center justify-between p-4 group">
+          {thumbnail && (
+            <img
+              src={thumbnail}
+              alt={query}
+              className="absolute inset-0 w-full h-full object-cover opacity-20 filter blur-xs group-hover:opacity-30 transition-opacity"
+            />
+          )}
+          <div className="relative z-10 flex items-center gap-3 min-w-0">
+            <button
+              onClick={handlePlay}
+              className="w-11 h-11 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/25 hover:scale-105 active:scale-95 transition-all text-white shrink-0"
+              title={hasPlayedBefore ? "Resume Track" : "Play Track"}
+            >
+              <Play className="w-5 h-5 fill-white ml-0.5" />
+            </button>
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full">
+                {hasPlayedBefore ? '⏸️ Track Paused' : '🎵 Ready to Play'}
+              </span>
+              <p className="text-xs text-gray-300 truncate mt-1">
+                {hasPlayedBefore ? 'Click Resume to continue listening' : 'Click to start playback'}
+              </p>
+            </div>
+          </div>
+          <div className="relative z-10 shrink-0">
+            <button
+              onClick={handlePlay}
+              className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            >
+              <Play className="w-3.5 h-3.5 fill-cyan-300" />
+              <span>{hasPlayedBefore ? 'Resume' : 'Play Track'}</span>
+            </button>
           </div>
         </div>
       )}
@@ -400,9 +574,31 @@ export function SongPlayer({ query }: { query: string }) {
 /* =========================================================================
    3. VIDEO PLAYER
    ========================================================================= */
-export function VideoPlayer({ query }: { query: string }) {
+export function VideoPlayer({ 
+  query, 
+  mediaId, 
+  autoPlay = false 
+}: { 
+  query: string; 
+  mediaId?: string; 
+  autoPlay?: boolean; 
+}) {
+  const id = mediaId || `video-${encodeURIComponent(query)}`;
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [hasPlayedBefore, setHasPlayedBefore] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [embedUrl, setEmbedUrl] = useState<string>('');
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
+
+  // Synchronize with Global Media Coordinator
+  useEffect(() => {
+    const unsubscribe = mediaManager.subscribe((activeId) => {
+      const active = activeId === id;
+      setIsPlaying(active);
+      if (active) setHasPlayedBefore(true);
+    });
+    return unsubscribe;
+  }, [id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -411,22 +607,42 @@ export function VideoPlayer({ query }: { query: string }) {
     fetch(`/api/media/search?q=${encodeURIComponent(query)}&type=video`)
       .then((res) => res.json())
       .then((data) => {
-        if (isMounted && data.embedUrl) {
-          setEmbedUrl(data.embedUrl);
+        if (isMounted) {
+          if (data.embedUrl) setEmbedUrl(data.embedUrl);
+          if (data.thumbnail) setThumbnail(data.thumbnail);
           setLoading(false);
+          // Only autoPlay if explicitly requested during this live session
+          if (autoPlay && mediaManager.isLiveInitiated(id)) {
+            mediaManager.play(id);
+          }
         }
       })
       .catch(() => {
         if (isMounted) {
-          setEmbedUrl(`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query)}&autoplay=1`);
+          setEmbedUrl(`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query)}&enablejsapi=1`);
           setLoading(false);
+          if (autoPlay && mediaManager.isLiveInitiated(id)) {
+            mediaManager.play(id);
+          }
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [query]);
+  }, [query, id, autoPlay]);
+
+  const handlePlay = () => {
+    mediaManager.play(id);
+  };
+
+  const handlePause = () => {
+    mediaManager.pause(id);
+  };
+
+  const activeIframeSrc = embedUrl
+    ? `${embedUrl}${embedUrl.includes('?') ? '&' : '?'}autoplay=1`
+    : '';
 
   return (
     <div className="my-3 rounded-2xl border border-blue-500/30 bg-gradient-to-br from-[#0a0f1d] to-[#070a14] p-4 shadow-xl shadow-blue-950/20 max-w-2xl">
@@ -436,24 +652,57 @@ export function VideoPlayer({ query }: { query: string }) {
             <Film className="w-4 h-4 text-red-400" />
           </div>
           <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400">
-              NEXORA Cinema
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400">
+                NEXORA Cinema
+              </span>
+              {isPlaying ? (
+                <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/50 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+                  ▶️ Playing
+                </span>
+              ) : hasPlayedBefore ? (
+                <span className="text-[10px] font-mono text-amber-300 bg-amber-950/50 border border-amber-500/30 px-1.5 py-0.2 rounded">
+                  ⏸️ Paused
+                </span>
+              ) : null}
+            </div>
             <h4 className="text-sm font-semibold text-white truncate">
               {query || 'Featured Video'}
             </h4>
           </div>
         </div>
 
-        <a
-          href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
-          target="_blank"
-          rel="noreferrer"
-          className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors text-xs flex items-center gap-1"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          <span>YouTube</span>
-        </a>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isPlaying ? (
+            <button
+              onClick={handlePause}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-medium flex items-center gap-1 hover:bg-amber-500/30 transition-colors"
+              title="Pause Video"
+            >
+              <Pause className="w-3.5 h-3.5" />
+              <span>Pause</span>
+            </button>
+          ) : (
+            <button
+              onClick={handlePlay}
+              className="px-2.5 py-1 rounded-lg bg-blue-500/20 border border-blue-500/40 text-blue-300 text-xs font-semibold flex items-center gap-1 hover:bg-blue-500/30 transition-colors"
+              title={hasPlayedBefore ? "Resume Video" : "Play Video"}
+            >
+              <Play className="w-3.5 h-3.5 fill-blue-300" />
+              <span>{hasPlayedBefore ? 'Resume' : 'Play'}</span>
+            </button>
+          )}
+
+          <a
+            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors text-xs flex items-center gap-1"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>YouTube</span>
+          </a>
+        </div>
       </div>
 
       {loading ? (
@@ -461,14 +710,37 @@ export function VideoPlayer({ query }: { query: string }) {
           <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           <span>Loading cinema video player...</span>
         </div>
-      ) : (
+      ) : isPlaying ? (
         <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl">
           <iframe
-            src={embedUrl}
+            src={activeIframeSrc}
             className="w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+        </div>
+      ) : (
+        /* Paused / Non-Playing Card (Ensures ZERO autoplay on refresh and pause when switching) */
+        <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/80 border border-white/10 flex items-center justify-center group">
+          {thumbnail && (
+            <img
+              src={thumbnail}
+              alt={query}
+              className="absolute inset-0 w-full h-full object-cover opacity-35 filter blur-xs group-hover:opacity-45 transition-opacity"
+            />
+          )}
+          <div className="relative z-10 flex flex-col items-center gap-2.5 p-4 text-center">
+            <button
+              onClick={handlePlay}
+              className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 hover:scale-110 active:scale-95 transition-all text-white"
+              title={hasPlayedBefore ? "Resume Video" : "Play Video"}
+            >
+              <Play className="w-7 h-7 fill-white ml-0.5" />
+            </button>
+            <span className="text-xs font-semibold text-white bg-black/60 px-3 py-1 rounded-full border border-white/10 backdrop-blur-sm">
+              {hasPlayedBefore ? '▶️ Click to Resume Video' : '▶️ Click to Play Video'}
+            </span>
+          </div>
         </div>
       )}
     </div>
@@ -833,14 +1105,32 @@ export function ArcadeHub({ initialTab = 'snake' }: { initialTab?: string }) {
   );
 }
 
-export default function PlayableMedia({ type, query = '', gameName, platform, season = 1, episode = 1 }: PlayableMediaProps) {
-  if (type === 'song') return <SongPlayer query={query} />;
-  if (type === 'video') return <VideoPlayer query={query} />;
+export default function PlayableMedia({ 
+  type, 
+  query = '', 
+  gameName, 
+  platform, 
+  season = 1, 
+  episode = 1,
+  mediaId,
+  autoPlay = false
+}: PlayableMediaProps) {
+  if (type === 'song') return <SongPlayer query={query} mediaId={mediaId} autoPlay={autoPlay} />;
+  if (type === 'video') return <VideoPlayer query={query} mediaId={mediaId} autoPlay={autoPlay} />;
   if (type === 'game') {
     if (gameName === 'snake') return <SnakeGame />;
     if (gameName === 'tictactoe') return <TicTacToeGame />;
     if (gameName === '2048') return <Puzzle2048 />;
     return <ArcadeHub initialTab="snake" />;
   }
-  return <MoviePlayer query={query} targetPlatform={platform} initialSeason={season} initialEpisode={episode} />;
+  return (
+    <MoviePlayer 
+      query={query} 
+      targetPlatform={platform} 
+      initialSeason={season} 
+      initialEpisode={episode} 
+      mediaId={mediaId} 
+      autoPlay={autoPlay} 
+    />
+  );
 }

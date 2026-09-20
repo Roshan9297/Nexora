@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         success: true,
         videoId,
-        embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`,
+        thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?enablejsapi=1&rel=0`,
         query: q,
         type,
       });
@@ -41,7 +42,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       videoId: null,
-      embedUrl: `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(q)}&autoplay=1`,
+      thumbnail: null,
+      embedUrl: `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(q)}&enablejsapi=1`,
       query: q,
       type,
     });
@@ -49,7 +51,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       videoId: null,
-      embedUrl: `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(q)}&autoplay=1`,
+      thumbnail: null,
+      embedUrl: `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(q)}&enablejsapi=1`,
       query: q,
       type,
       error: err.message,
