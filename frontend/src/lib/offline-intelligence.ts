@@ -106,31 +106,23 @@ export function generateOfflineResponse(
     };
   }
 
-  // 2. Greetings & Identity
+  // 2. Greetings & Identity (Siri-like quick charm)
   if (/^(hi|hello|hey|greetings|hola|namaste|namaskaram|yo|good\s+(?:morning|afternoon|evening))\b/i.test(lower)) {
     const isTeluguGreeting = /namaskaram|ela\s+unnaru|bagunnara/i.test(lower);
     return {
       thought: reasoningMode
-        ? "User greeted assistant. Introducing Faiza female voice assistant with multilingual English and Telugu support."
+        ? "User greeted assistant. Answering in signature iPhone Siri conversational tone."
         : undefined,
       content: isTeluguGreeting
-        ? `నమస్కారం! నేను **ఫైజా (Faiza)**, మీ పర్సనల్ AI వాయిస్ అసిస్టెంట్. 🌸\n\nనేను మీకు తెలుగు మరియు ఇంగ్లీష్‌లలో సహాయం చేయగలను. మీకు ఈరోజు ఏమి సహాయం కావాలి?`
-        : `Hello! I am **Faiza (ఫైజా)**, your personal AI voice assistant powered by NEXORA. 🌸\n\nI can speak and assist you fluently in **English**, **Telugu (తెలుగు)**, and other languages.\n\n- 🎙️ **Voice Conversation**: Speak to me in English or Telugu!\n- 🎬 **Cinema & Songs**: Ask me to play any movie, song, or anime.\n- 💻 **Intelligence & Code**: Ask any coding, reasoning, or calculation questions.\n\nHow can I help you today?`,
+        ? `నమస్కారం! నేను మీ **ఫైజా (Faiza)**. 😊\n\nచెప్పండి, నేను మీకు ఎలా సహాయపడగలను?`
+        : `Hey there! I'm **Faiza**, your personal AI assistant. What can I help you with today?`,
     };
   }
 
   if (/who\s+are\s+you|what\s+is\s+your\s+name|ni\s+peru|mee\s+peru|neevu\s+evaru|tell\s+me\s+about\s+yourself/i.test(lower)) {
     return {
-      thought: reasoningMode ? "Providing overview of Faiza female voice assistant identity." : undefined,
-      content: `### 🌸 I am Faiza (ఫైజా)
-I am your dedicated AI voice assistant designed to help you with voice conversations, coding, media streaming, and problem-solving.
-
-- 🗣️ **Languages**: English, Telugu (తెలుగు), Hindi, and more.
-- 🎙️ **Natural Female Voice**: Crisp, natural voice speech synthesis in multiple accents.
-- 🎬 **Digital Cinema & Music Hub**: Instant playback for songs, movies, anime, and games.
-- ⚡ **Offline & Online Resilience**: Zero latency and continuous assistance.
-
-మీరు నాతో తెలుగులో లేదా English లో మాట్లాడవచ్చు! How can I assist you right now?`,
+      thought: reasoningMode ? "Answering identity question with iPhone Siri wit and charm." : undefined,
+      content: `I'm **Faiza (ఫైజా)**. Think of me as your personal Siri with extra superpowers. ✨\n\nI can speak in **English**, **Telugu (తెలుగు)**, help you code, queue movies and songs, answer questions, or just chat whenever you like. What's on your mind?`,
     };
   }
 

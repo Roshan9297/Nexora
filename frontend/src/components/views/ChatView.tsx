@@ -225,20 +225,23 @@ export const ChatView: React.FC<ChatViewProps> = ({
         || voices.find((v) => (v.lang === 'en-IN' || v.lang === 'hi-IN') && (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('swara') || v.name.toLowerCase().includes('neerja')));
     } else {
       utterance.lang = 'en-US';
-      // Find top natural female voices (e.g. Jenny, Aria, Sonia, Samantha, Victoria, Zira, Google UK English Female, etc.)
+      // Apple Siri voice matching: On Apple/iOS/macOS, "Samantha" / "Siri" is the actual iPhone Siri voice
+      // On Windows/Edge/Chrome, Microsoft "Jenny Natural", "Aria Online", "Zira" offer identical Siri-grade clarity
       selectedVoice = voices.find(
         (v) =>
-          (v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('online')) &&
-          (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('jenny') || v.name.toLowerCase().includes('aria') || v.name.toLowerCase().includes('sonia'))
+          v.name.toLowerCase().includes('siri') ||
+          v.name.toLowerCase().includes('samantha')
+      ) || voices.find(
+        (v) =>
+          (v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('neural')) &&
+          (v.name.toLowerCase().includes('jenny') || v.name.toLowerCase().includes('aria') || v.name.toLowerCase().includes('sonia'))
       ) || voices.find(
         (v) =>
           (v.lang.startsWith('en')) &&
           (v.name.toLowerCase().includes('female') ||
            v.name.toLowerCase().includes('zira') ||
-           v.name.toLowerCase().includes('samantha') ||
            v.name.toLowerCase().includes('victoria') ||
-           v.name.toLowerCase().includes('karen') ||
-           v.name.toLowerCase().includes('susan'))
+           v.name.toLowerCase().includes('karen'))
       ) || voices.find((v) => v.lang.startsWith('en'));
     }
 
@@ -246,9 +249,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
       utterance.voice = selectedVoice;
     }
 
-    // Warm, natural female pitch & cadence for Faiza
-    utterance.pitch = 1.15; // slightly higher feminine pitch
-    utterance.rate = 1.02;
+    // iPhone Siri style vocal cadence: crisp, clear, moderate rate and authentic friendly pitch
+    utterance.pitch = 1.08;
+    utterance.rate = 1.05;
 
     utterance.onend = () => setSpeakingId(null);
     utterance.onerror = () => setSpeakingId(null);
