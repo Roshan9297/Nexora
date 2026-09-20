@@ -287,12 +287,22 @@ export async function getAutoApplyLogs() {
   return await res.json();
 }
 
-export async function triggerAutoApplyCycle(settings: UserSettings, force: boolean = true) {
+export async function triggerAutoApplyCycle(
+  settings: UserSettings, 
+  force: boolean = true,
+  resumeText?: string,
+  candidateProfile?: any
+) {
   const config = getProviderConfig(settings);
   const res = await fetch(`${API_BASE}/api/jobs/auto-apply/trigger`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...config, force }),
+    body: JSON.stringify({ 
+      ...config, 
+      force,
+      resume_text: resumeText,
+      candidate_profile: candidateProfile
+    }),
   });
   return await res.json();
 }
