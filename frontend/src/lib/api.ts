@@ -268,6 +268,35 @@ export async function saveJobApplications(apps: JobApplication[]) {
   return await res.json();
 }
 
+export async function getCandidateProfile() {
+  const res = await fetch(`${API_BASE}/api/jobs/auto-apply/profile`);
+  return await res.json();
+}
+
+export async function saveCandidateProfile(profile: any) {
+  const res = await fetch(`${API_BASE}/api/jobs/auto-apply/profile`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(profile),
+  });
+  return await res.json();
+}
+
+export async function getAutoApplyLogs() {
+  const res = await fetch(`${API_BASE}/api/jobs/auto-apply/logs`);
+  return await res.json();
+}
+
+export async function triggerAutoApplyCycle(settings: UserSettings, force: boolean = true) {
+  const config = getProviderConfig(settings);
+  const res = await fetch(`${API_BASE}/api/jobs/auto-apply/trigger`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...config, force }),
+  });
+  return await res.json();
+}
+
 export async function interviewPrep(
   role: string,
   category: string,

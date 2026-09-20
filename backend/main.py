@@ -59,6 +59,26 @@ async def health():
         "default_providers": ["pollinations", "groq", "gemini", "ollama", "lmstudio", "openrouter"]
     }
 
+# Autonomous Daily Auto-Applier Background Daemon
+async def daily_auto_applier_daemon():
+    """Runs once every 24 hours in the background if enabled in candidate profile."""
+    # Give server 15 seconds to boot up before initial check
+    await asyncio.sleep(15)
+    while True:
+        try:
+            profile = JobAgent.get_candidate_profile()
+            if profile.get("auto_apply_enabled", True):
+                print("[NEXORA DAEMON] Running scheduled daily auto-application & JD tailoring cycle...")
+                await JobAgent.run_daily_auto_apply_cycle(provider="pollinations", force=False)
+        except Exception as e:
+            print(f"[NEXORA DAEMON] Auto-apply cycle encountered error: {e}")
+        # Sleep 24 hours (86400 seconds)
+        await asyncio.sleep(86400)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(daily_auto_applier_daemon())
+
 # 1. Chat & Reasoning Stream Endpoint (SSE)
 class ChatRequest(BaseModel):
     messages: List[Dict[str, str]]
@@ -390,6 +410,36 @@ async def interview_prep_endpoint(req: InterviewPrepRequest):
         api_key=req.api_key
     )
     return {"result": prep}
+
+# Auto-Applier Suite (Daily Autonomous JD Tailoring & Application Dispatch)
+@app.get("/api/jobs/auto-apply/profile")
+async def get_candidate_profile_endpoint():
+    return JobAgent.get_candidate_profile()
+
+@app.post("/api/jobs/auto-apply/profile")
+async def save_candidate_profile_endpoint(profile: Dict[str, Any]):
+    saved = JobAgent.save_candidate_profile(profile)
+    return {"success": True, "profile": saved}
+
+@app.get("/api/jobs/auto-apply/logs")
+async def get_auto_apply_logs_endpoint():
+    return {"logs": JobAgent.get_auto_apply_logs()}
+
+class AutoApplyTriggerRequest(BaseModel):
+    provider: Optional[str] = "pollinations"
+    model: Optional[str] = None
+    api_key: Optional[str] = None
+    force: Optional[bool] = True
+
+@app.post("/api/jobs/auto-apply/trigger")
+async def trigger_auto_apply_endpoint(req: AutoApplyTriggerRequest):
+    result = await JobAgent.run_daily_auto_apply_cycle(
+        provider=req.provider or "pollinations",
+        model=req.model,
+        api_key=req.api_key,
+        force=req.force if req.force is not None else True
+    )
+    return result
 
 # 10. Email Agent
 class EmailRequest(BaseModel):

@@ -14,6 +14,11 @@ import {
   getJobApplications,
   saveJobApplications,
   interviewPrep,
+  getCandidateProfile,
+  saveCandidateProfile,
+  getAutoApplyLogs,
+  triggerAutoApplyCycle,
+  uploadDocument,
 } from '@/lib/api';
 import {
   Briefcase,
@@ -31,6 +36,16 @@ import {
   Plus,
   ArrowRight,
   TrendingUp,
+  Bot,
+  Play,
+  RotateCw,
+  Upload,
+  Clock,
+  ShieldCheck,
+  Building2,
+  FileUp,
+  Sliders,
+  AlertCircle,
 } from 'lucide-react';
 
 interface JobSuiteViewProps {
@@ -38,6 +53,7 @@ interface JobSuiteViewProps {
 }
 
 type JobSubTab =
+  | 'auto_applier'
   | 'find'
   | 'match'
   | 'tailor'
@@ -47,7 +63,7 @@ type JobSubTab =
   | 'interview';
 
 export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
-  const [subTab, setSubTab] = useState<JobSubTab>('find');
+  const [subTab, setSubTab] = useState<JobSubTab>('auto_applier');
 
   // Shared state
   const [resumeText, setResumeText] = useState(
@@ -56,6 +72,29 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
   const [jobDescription, setJobDescription] = useState(
     `Senior Software Engineer\nWe are looking for a Senior Engineer experienced in Next.js, TypeScript, Python, FastAPI, and Cloud Architecture.\nResponsibilities: Design scalable APIs, lead architectural discussions, mentor junior engineers, and deliver robust features.`
   );
+
+  // 0. Auto-Applier Robot State
+  const [candidateProfile, setCandidateProfile] = useState<any>({
+    name: 'Candidate',
+    email: 'candidate@example.com',
+    phone: '+1 (555) 019-2834',
+    linkedin: 'https://linkedin.com/in/candidate',
+    github: 'https://github.com/candidate',
+    portfolio: 'https://candidate.dev',
+    target_roles: ['Software Engineer', 'Full Stack Developer', 'AI Engineer'],
+    target_locations: ['Remote', 'Worldwide'],
+    min_salary: '$120,000',
+    auto_apply_enabled: true,
+    max_applications_per_day: 5,
+    resume_text: '',
+    resume_filename: 'master_resume.pdf'
+  });
+  const [targetRolesInput, setTargetRolesInput] = useState('Software Engineer, Full Stack Developer, AI Engineer');
+  const [targetLocationsInput, setTargetLocationsInput] = useState('Remote, Worldwide');
+  const [autoApplyLogs, setAutoApplyLogs] = useState<any[]>([]);
+  const [isRunningAutoApply, setIsRunningAutoApply] = useState(false);
+  const [autoApplyMessage, setAutoApplyMessage] = useState<string | null>(null);
+  const [isUploadingResume, setIsUploadingResume] = useState(false);
 
   // 1. Find Jobs State
   const [jobQuery, setJobQuery] = useState('Full Stack Engineer');
@@ -100,11 +139,28 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Load tracker applications on mount
+  // Load candidate profile, tracker, and logs on mount
   useEffect(() => {
+    getCandidateProfile()
+      .then((data) => {
+        if (data && data.name) {
+          setCandidateProfile(data);
+          if (data.resume_text) setResumeText(data.resume_text);
+          if (data.target_roles) setTargetRolesInput(data.target_roles.join(', '));
+          if (data.target_locations) setTargetLocationsInput(data.target_locations.join(', '));
+        }
+      })
+      .catch(() => {});
+
     getJobApplications()
       .then((data) => {
         if (data.applications) setApplications(data.applications);
+      })
+      .catch(() => {});
+
+    getAutoApplyLogs()
+      .then((data) => {
+        if (data.logs) setAutoApplyLogs(data.logs);
       })
       .catch(() => {});
   }, []);
@@ -227,7 +283,88 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
     }
   };
 
-  const tabs: Array<{ id: JobSubTab; label: string; icon: any }> = [
+  // Auto-Applier Robot Handlers
+  const handleSaveProfile = async () => {
+    const updated = {
+      ...candidateProfile,
+      resume_text: resumeText,
+      target_roles: targetRolesInput.split(',').map((r) => r.trim()).filter(Boolean),
+      target_locations: targetLocationsInput.split(',').map((l) => l.trim()).filter(Boolean),
+    };
+    try {
+      await saveCandidateProfile(updated);
+      setCandidateProfile(updated);
+      alert('Candidate profile & master resume saved successfully!');
+    } catch (err: any) {
+      alert(`Failed to save profile: ${err.message}`);
+    }
+  };
+
+  const handleResumeFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingResume(true);
+    try {
+      if (file.name.endsWith('.pdf') || file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+        const docRes = await uploadDocument(file);
+        setResumeText(docRes.text);
+        setCandidateProfile((prev: any) => ({ ...prev, resume_filename: file.name, resume_text: docRes.text }));
+      } else {
+        const text = await file.text();
+        setResumeText(text);
+        setCandidateProfile((prev: any) => ({ ...prev, resume_filename: file.name, resume_text: text }));
+      }
+    } catch (err: any) {
+      alert(`Resume upload failed: ${err.message}`);
+    } finally {
+      setIsUploadingResume(false);
+    }
+  };
+
+  const handleRunAutoApply = async () => {
+    if (!resumeText.trim()) {
+      alert('Please upload or paste your resume first before starting auto-apply.');
+      return;
+    }
+
+    setIsRunningAutoApply(true);
+    setAutoApplyMessage('Scanning company career pages (Greenhouse, Lever, RemoteOK) and newly posted roles...');
+
+    try {
+      // First ensure profile is saved with latest text
+      const updatedProfile = {
+        ...candidateProfile,
+        resume_text: resumeText,
+        target_roles: targetRolesInput.split(',').map((r) => r.trim()).filter(Boolean),
+        target_locations: targetLocationsInput.split(',').map((l) => l.trim()).filter(Boolean),
+      };
+      await saveCandidateProfile(updatedProfile);
+
+      setAutoApplyMessage('Matching JDs & tailoring resumes with STAR format + ATS keyword optimization...');
+      const res = await triggerAutoApplyCycle(settings, true);
+
+      if (res.success) {
+        confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+        setAutoApplyMessage(res.message);
+        // Refresh tracker and logs
+        const appsRes = await getJobApplications();
+        if (appsRes.applications) setApplications(appsRes.applications);
+
+        const logsRes = await getAutoApplyLogs();
+        if (logsRes.logs) setAutoApplyLogs(logsRes.logs);
+      } else {
+        setAutoApplyMessage(`Auto-Apply notice: ${res.message}`);
+      }
+    } catch (err: any) {
+      setAutoApplyMessage(`Auto-Apply encountered error: ${err.message}`);
+    } finally {
+      setIsRunningAutoApply(false);
+    }
+  };
+
+  const tabs: Array<{ id: JobSubTab; label: string; icon: any; badge?: string }> = [
+    { id: 'auto_applier', label: '⚡ Auto-Apply Robot (Daily JD Tailor)', icon: Bot, badge: 'AUTO' },
     { id: 'find', label: '1. Find Jobs', icon: Search },
     { id: 'match', label: '2. Match Resume', icon: CheckCircle2 },
     { id: 'tailor', label: '3. Tailor Resume', icon: FileText },
@@ -265,6 +402,293 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
 
       {/* Main Tab Content */}
       <div className="flex-1 p-6 overflow-y-auto">
+        {/* TAB 0: AUTO-APPLY ROBOT */}
+        {subTab === 'auto_applier' && (
+          <div className="max-w-6xl mx-auto space-y-6">
+            {/* Header Hero Banner */}
+            <div className="relative overflow-hidden bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-cyan-900/30 border border-purple-500/30 rounded-3xl p-6 md:p-8 shadow-2xl">
+              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-semibold mb-3">
+                    <Sparkles className="w-3.5 h-3.5 text-pink-400" />
+                    <span>Autonomous Daily Career Agent</span>
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                    Daily Job Auto-Applier &amp; JD Tailor Robot
+                  </h2>
+                  <p className="text-sm text-gray-300 mt-2 max-w-2xl leading-relaxed">
+                    Upload your master resume once. NEXORA scans company career boards (Greenhouse, Lever, RemoteOK, and corporate sites) every day, rewrites and tailors your resume strictly to each Job Description, and submits applications automatically!
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                  <button
+                    onClick={handleRunAutoApply}
+                    disabled={isRunningAutoApply}
+                    className="w-full md:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:opacity-90 text-white font-semibold text-sm shadow-xl shadow-purple-600/30 disabled:opacity-50 transition-all flex items-center justify-center gap-2 transform active:scale-95"
+                  >
+                    {isRunningAutoApply ? (
+                      <>
+                        <RotateCw className="w-4 h-4 animate-spin" />
+                        <span>Running Autonomous Cycle...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 fill-current" />
+                        <span>Run Today&apos;s Auto-Apply Now</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Banner */}
+              {autoApplyMessage && (
+                <div className="mt-4 p-3.5 bg-black/40 border border-purple-500/40 rounded-xl text-xs text-purple-200 flex items-center gap-2">
+                  <RotateCw className={`w-4 h-4 text-pink-400 ${isRunningAutoApply ? 'animate-spin' : ''}`} />
+                  <span>{autoApplyMessage}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Profile & Resume Upload Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column: Master Resume & Upload */}
+              <div className="lg:col-span-6 space-y-4">
+                <div className="bg-[#121622] border border-white/5 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-purple-400" />
+                        <span>Master Candidate Resume</span>
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Used as the source of truth to tailor per-job resumes.
+                      </p>
+                    </div>
+
+                    {/* Resume Upload Button */}
+                    <label className="cursor-pointer px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-xs font-medium flex items-center gap-1.5 transition-colors">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{isUploadingResume ? 'Parsing...' : 'Upload PDF/DOCX'}</span>
+                      <input
+                        type="file"
+                        accept=".pdf,.docx,.doc,.txt"
+                        onChange={handleResumeFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  <textarea
+                    rows={12}
+                    value={resumeText}
+                    onChange={(e) => setResumeText(e.target.value)}
+                    placeholder="Paste or upload your master resume here..."
+                    className="w-full bg-[#181d2a] border border-white/10 rounded-xl p-3 text-xs text-white placeholder-gray-500 outline-none focus:border-purple-500 font-mono resize-none leading-relaxed"
+                  />
+
+                  <div className="flex items-center justify-between text-xs text-gray-400">
+                    <span>Active File: <strong className="text-purple-300">{candidateProfile.resume_filename || 'master_resume.pdf'}</strong></span>
+                    <span>{resumeText.split(/\s+/).filter(Boolean).length} words</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Preferences & Autonomous Daily Schedule */}
+              <div className="lg:col-span-6 space-y-4">
+                <div className="bg-[#121622] border border-white/5 rounded-2xl p-5 space-y-4">
+                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-cyan-400" />
+                    <span>Target Roles &amp; Auto-Pilot Settings</span>
+                  </h3>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Target Roles (comma separated)
+                      </label>
+                      <input
+                        type="text"
+                        value={targetRolesInput}
+                        onChange={(e) => setTargetRolesInput(e.target.value)}
+                        placeholder="e.g. Software Engineer, Full Stack, AI Developer"
+                        className="w-full bg-[#181d2a] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">
+                          Locations / Remote
+                        </label>
+                        <input
+                          type="text"
+                          value={targetLocationsInput}
+                          onChange={(e) => setTargetLocationsInput(e.target.value)}
+                          placeholder="Remote, Worldwide, US"
+                          className="w-full bg-[#181d2a] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">
+                          Min Desired Salary
+                        </label>
+                        <input
+                          type="text"
+                          value={candidateProfile.min_salary || '$120,000'}
+                          onChange={(e) =>
+                            setCandidateProfile((prev: any) => ({ ...prev, min_salary: e.target.value }))
+                          }
+                          placeholder="$120,000"
+                          className="w-full bg-[#181d2a] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">
+                          Candidate Full Name
+                        </label>
+                        <input
+                          type="text"
+                          value={candidateProfile.name || ''}
+                          onChange={(e) =>
+                            setCandidateProfile((prev: any) => ({ ...prev, name: e.target.value }))
+                          }
+                          placeholder="Jane Doe"
+                          className="w-full bg-[#181d2a] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">
+                          Application Email
+                        </label>
+                        <input
+                          type="email"
+                          value={candidateProfile.email || ''}
+                          onChange={(e) =>
+                            setCandidateProfile((prev: any) => ({ ...prev, email: e.target.value }))
+                          }
+                          placeholder="jane@example.com"
+                          className="w-full bg-[#181d2a] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Automation Daily Toggle */}
+                    <div className="p-3.5 bg-white/[0.02] border border-white/5 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <Clock className="w-4 h-4 text-emerald-400" />
+                        <div>
+                          <div className="text-xs font-semibold text-white">Daily Background Auto-Scan</div>
+                          <div className="text-[11px] text-gray-400">Runs once every 24 hours automatically in backend</div>
+                        </div>
+                      </div>
+
+                      <input
+                        type="checkbox"
+                        checked={candidateProfile.auto_apply_enabled !== false}
+                        onChange={(e) =>
+                          setCandidateProfile((prev: any) => ({ ...prev, auto_apply_enabled: e.target.checked }))
+                        }
+                        className="w-4 h-4 accent-purple-500 cursor-pointer"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleSaveProfile}
+                      className="w-full py-2.5 rounded-xl bg-purple-600/30 border border-purple-500/40 hover:bg-purple-600/40 text-purple-200 text-xs font-semibold transition-colors flex items-center justify-center gap-2"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Save Candidate Profile &amp; Preferences</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Daily Auto-Apply Activity Audit Table */}
+            <div className="bg-[#121622] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+              <div className="px-6 py-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-purple-400" />
+                    <span>Auto-Applied Jobs &amp; Daily Submissions Audit</span>
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Every job tailored and automatically submitted by the robot. View tailored resumes in the Kanban Tracker.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSubTab('tracker')}
+                  className="text-xs text-purple-300 hover:text-white flex items-center gap-1"
+                >
+                  <span>Open Application Kanban</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="divide-y divide-white/5">
+                {applications.filter((a) => a.notes?.includes('Auto-Applied')).length > 0 ? (
+                  applications
+                    .filter((a) => a.notes?.includes('Auto-Applied'))
+                    .map((app) => (
+                      <div key={app.id} className="p-4 px-6 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-white/[0.01] transition-colors">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-white">{app.position}</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              {app.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            {app.company} • Applied on {app.date} • {app.salary}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {app.url && (
+                            <a
+                              href={app.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-cyan-400 hover:underline flex items-center gap-1"
+                            >
+                              <span>Job Page</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                          <button
+                            onClick={() => {
+                              if ((app as any).tailored_resume) {
+                                setTailoredResult((app as any).tailored_resume);
+                                setSubTab('tailor');
+                              } else {
+                                setSubTab('tracker');
+                              }
+                            }}
+                            className="px-3 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-medium hover:bg-purple-500/30 transition-colors"
+                          >
+                            View Tailored Resume
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                  <div className="p-12 text-center text-gray-400 space-y-2">
+                    <Bot className="w-10 h-10 mx-auto text-purple-400/60" />
+                    <p className="text-xs">No auto-applications yet for today. Click &quot;Run Today&apos;s Auto-Apply Now&quot; to start!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB 1: FIND JOBS */}
         {subTab === 'find' && (
           <div className="space-y-5 max-w-6xl mx-auto">
