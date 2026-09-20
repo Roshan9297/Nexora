@@ -17,7 +17,13 @@ import {
   ChevronDown,
   ChevronUp,
   RotateCcw,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  X,
+  Loader2,
 } from 'lucide-react';
+import { uploadDocument } from '@/lib/api';
 import PlayableMedia from '@/components/media/PlayableMedia';
 
 function extractPlayableMedia(content: string, userPrompt?: string) {
@@ -147,9 +153,93 @@ export const ChatView: React.FC<ChatViewProps> = ({
     scrollToBottom();
   }, [messages, isStreaming]);
 
+  // File Attachment State (Supports All Files: PDF, DOCX, TXT, CSV, Code, Images, etc.)
+  const [attachedFiles, setAttachedFiles] = useState<
+    Array<{ name: string; size: number; type: string; content?: string; isImage?: boolean; previewUrl?: string }>
+  >([]);
+  const [isReadingFile, setIsReadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Faiza Voice Language Selector ('te-IN' | 'en-US' | 'en-IN' | 'hi-IN')
   const [voiceLang, setVoiceLang] = useState<'en-US' | 'te-IN' | 'en-IN'>('en-US');
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+
+  // Universal File Upload Handler
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsReadingFile(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const isImg = file.type.startsWith('image/');
+        const isDocxOrPdf = file.name.endsWith('.pdf') || file.name.endsWith('.docx') || file.name.endsWith('.doc');
+
+        if (isDocxOrPdf) {
+          // Send to backend extractor for full text parsing
+          try {
+            const docRes = await uploadDocument(file);
+            setAttachedFiles((prev) => [
+              ...prev,
+              {
+                name: file.name,
+                size: file.size,
+                type: file.type || 'document',
+                content: docRes.text,
+              },
+            ]);
+          } catch (err) {
+            console.error('Backend document parsing fallback:', err);
+            // Fallback to text reader
+            const text = await file.text();
+            setAttachedFiles((prev) => [
+              ...prev,
+              { name: file.name, size: file.size, type: file.type || 'document', content: text },
+            ]);
+          }
+        } else if (isImg) {
+          // Read base64 for preview
+          const reader = new FileReader();
+          reader.onload = () => {
+            setAttachedFiles((prev) => [
+              ...prev,
+              {
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                isImage: true,
+                previewUrl: reader.result as string,
+                content: `[Image File: ${file.name} (${Math.round(file.size / 1024)} KB)]`,
+              },
+            ]);
+          };
+          reader.readAsDataURL(file);
+        } else {
+          // Code, JSON, CSV, MD, TXT, etc.
+          const text = await file.text();
+          setAttachedFiles((prev) => [
+            ...prev,
+            {
+              name: file.name,
+              size: file.size,
+              type: file.type || 'text/plain',
+              content: text,
+            },
+          ]);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error attaching file:', err);
+    } finally {
+      setIsReadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachedFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   // Helper to detect Telugu script in text
   const isTeluguText = (text: string) => /[\u0C00-\u0C7F]/.test(text);
@@ -306,10 +396,22 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!input.trim() || isStreaming) return;
+    if ((!input.trim() && attachedFiles.length === 0) || isStreaming) return;
 
-    const userPrompt = input.trim();
+    let userPrompt = input.trim();
+    const currentFiles = [...attachedFiles];
     setInput('');
+    setAttachedFiles([]);
+
+    // Format prompt with attached file contents if present
+    if (currentFiles.length > 0) {
+      const fileContextParts = currentFiles.map((f) => {
+        return `[Attached File: ${f.name} (${Math.round(f.size / 1024)} KB)]\n\`\`\`\n${(f.content || '').slice(0, 15000)}\n\`\`\``;
+      });
+      userPrompt = userPrompt
+        ? `${userPrompt}\n\n${fileContextParts.join('\n\n')}`
+        : `Please inspect and summarize the attached file(s):\n\n${fileContextParts.join('\n\n')}`;
+    }
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -562,10 +664,67 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
       {/* Input Bar */}
       <div className="p-4 md:px-12 border-t border-white/5 bg-[#0d1017]/90 backdrop-blur-md">
+        {/* Attached Files Preview Bar */}
+        {attachedFiles.length > 0 && (
+          <div className="max-w-4xl mx-auto mb-2 flex flex-wrap gap-2">
+            {attachedFiles.map((file, idx) => (
+              <div
+                key={idx}
+                className="flex items-center gap-2 bg-[#1c2230] border border-cyan-500/30 rounded-xl px-3 py-1.5 text-xs text-cyan-200 shadow-md animate-fadeIn"
+              >
+                {file.isImage ? (
+                  <ImageIcon className="w-4 h-4 text-pink-400 shrink-0" />
+                ) : (
+                  <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                )}
+                <span className="max-w-[150px] truncate font-medium text-white">{file.name}</span>
+                <span className="text-[10px] text-gray-400">({Math.round(file.size / 1024)} KB)</span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachedFile(idx)}
+                  className="text-gray-400 hover:text-rose-400 transition-colors ml-1"
+                  title="Remove attachment"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <form
           onSubmit={handleSubmit}
           className="max-w-4xl mx-auto flex items-center gap-2 bg-[#131722] border border-white/10 rounded-2xl p-1.5 focus-within:border-pink-500/50 shadow-xl transition-all"
         >
+          {/* Universal File Upload Input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            multiple
+            className="hidden"
+            id="chat-file-upload"
+          />
+
+          {/* Paperclip Button for All Files Upload */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isReadingFile}
+            className={`p-2.5 rounded-xl transition-colors ${
+              attachedFiles.length > 0
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                : 'text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10'
+            }`}
+            title="Attach any file (PDF, Docs, Excel, Code, Images, Text, etc.)"
+          >
+            {isReadingFile ? (
+              <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+            ) : (
+              <Paperclip className="w-5 h-5" />
+            )}
+          </button>
+
           {/* Faiza Voice Language Selector */}
           <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1">
             <span className="text-[11px] font-semibold text-pink-400">🌸 Faiza</span>
@@ -601,11 +760,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={
-              voiceLang === 'te-IN'
+              attachedFiles.length > 0
+                ? `Ask anything about ${attachedFiles.map((f) => f.name).join(', ')}...`
+                : voiceLang === 'te-IN'
                 ? 'ఫైజాతో తెలుగులో మాట్లాడండి లేదా టైప్ చేయండి...'
                 : reasoningMode
                 ? 'Ask Faiza with Deep Reasoning enabled...'
-                : 'Ask Faiza (Voice Assistant in English / తెలుగు)...'
+                : 'Ask Faiza or attach any files (PDF, Code, Docs, Images)...'
             }
             className="flex-1 bg-transparent px-3 py-2 text-sm text-white placeholder-[#8e8e8e] outline-none"
           />
@@ -613,7 +774,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           {/* Send Button */}
           <button
             type="submit"
-            disabled={!input.trim() || isStreaming}
+            disabled={(!input.trim() && attachedFiles.length === 0) || isStreaming || isReadingFile}
             className="p-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-indigo-500 text-white hover:opacity-90 disabled:opacity-30 transition-all shadow-md font-medium"
           >
             <Send className="w-4 h-4" />

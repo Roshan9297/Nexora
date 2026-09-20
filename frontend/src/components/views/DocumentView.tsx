@@ -72,9 +72,9 @@ export const DocumentView: React.FC<DocumentViewProps> = ({ settings }) => {
             <FileText className="w-6 h-6 text-cyan-400" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-white">Document Analysis Agent</h2>
+            <h2 className="text-base font-semibold text-white">Document & File Analysis Agent</h2>
             <p className="text-xs text-gray-400">
-              Upload PDF, DOCX, or TXT documents. Extract text 100% locally and generate summaries or Q&A.
+              Upload all files: PDF, DOCX, Code, CSV, Sheets, JSON, or TXT. Extract text 100% locally and generate summaries or Q&A.
             </p>
           </div>
         </div>
@@ -82,10 +82,10 @@ export const DocumentView: React.FC<DocumentViewProps> = ({ settings }) => {
         {/* Upload Button */}
         <label className="cursor-pointer px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs font-semibold hover:opacity-90 shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition-all">
           <FileUp className="w-4 h-4" />
-          <span>{isUploading ? 'Extracting...' : 'Upload Document'}</span>
+          <span>{isUploading ? 'Extracting...' : 'Upload File'}</span>
           <input
             type="file"
-            accept=".pdf,.docx,.doc,.txt,.md,.json,.csv"
+            accept="*"
             onChange={handleFileUpload}
             className="hidden"
           />
