@@ -209,9 +209,14 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
       'AWS', 'GCP', 'Azure', 'FastAPI', 'Django', 'GraphQL', 'REST', 'TailwindCSS', 'Kafka',
       'Linux', 'Git', 'CI/CD', 'Machine Learning', 'AI', 'LLM', 'LangChain', 'System Design'
     ];
-    const matched = techKeywords.filter((k) =>
-      new RegExp(`\\b${k.replace('.', '\\.')}\\b`, 'i').test(raw)
-    );
+    const lowerRaw = raw.toLowerCase();
+    const matched = techKeywords.filter((k) => {
+      const lowerK = k.toLowerCase();
+      if (lowerK === 'c++' || lowerK === 'c#') {
+        return lowerRaw.includes(lowerK);
+      }
+      return new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(raw);
+    });
     const skillsDisplay = matched.length > 0
       ? matched.join(', ')
       : 'Full-Stack Architecture, Python, TypeScript, React, APIs, Distributed Systems';

@@ -188,9 +188,14 @@ async function forwardOrFallback(req: NextRequest, { params }: { params: Promise
         'AWS', 'GCP', 'Azure', 'FastAPI', 'Django', 'GraphQL', 'REST', 'TailwindCSS', 'Kafka',
         'Linux', 'Git', 'CI/CD', 'Machine Learning', 'AI', 'LLM', 'LangChain', 'System Design'
       ];
-      const matched = techKeywords.filter(k => 
-        new RegExp(`\\b${k.replace('.', '\\.')}\\b`, 'i').test(cleaned)
-      );
+      const lowerCleaned = cleaned.toLowerCase();
+      const matched = techKeywords.filter((k) => {
+        const lowerK = k.toLowerCase();
+        if (lowerK === 'c++' || lowerK === 'c#') {
+          return lowerCleaned.includes(lowerK);
+        }
+        return new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(cleaned);
+      });
       const skillsDisplay = matched.length > 0 
         ? matched.join(', ') 
         : 'Python, TypeScript, React, Next.js, Node.js, PostgreSQL, Cloud Architecture';
