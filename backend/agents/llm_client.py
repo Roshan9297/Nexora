@@ -37,7 +37,7 @@ class LLMClient:
                 encoded = urllib.parse.quote(full_prompt[:12000])
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     resp = await client.get(f"https://text.pollinations.ai/{encoded}?model=openai-fast")
-                    if resp.status_code == 200 and resp.text.strip():
+                    if resp.status_code == 200 and resp.text.strip() and "enough credits" not in resp.text and "Pollinations account" not in resp.text:
                         return resp.text.strip()
             except Exception:
                 pass
@@ -237,7 +237,7 @@ class LLMClient:
             encoded = urllib.parse.quote(full_prompt[:10000])
             async with httpx.AsyncClient(timeout=30.0) as client:
                 r = await client.get(f"https://text.pollinations.ai/{encoded}?model=openai-fast")
-                if r.status_code == 200 and r.text.strip():
+                if r.status_code == 200 and r.text.strip() and "enough credits" not in r.text and "Pollinations account" not in r.text:
                     yield r.text.strip()
                     return
         except Exception:

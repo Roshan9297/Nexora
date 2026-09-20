@@ -335,10 +335,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <div className="flex-1 min-w-0">
             <p className="font-medium text-[13px] text-white truncate">Roshan Roy</p>
-            <p className="text-[11px] text-[#8e8e8e] truncate flex items-center gap-1">
-              <span>Go</span>
+            <p className="text-[11px] text-[#8e8e8e] truncate flex items-center gap-1.5">
+              <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Unlimited Credits
+              </span>
               <span>•</span>
-              <span className="text-[#3b82f6] hover:underline">100% Free</span>
+              <span className="text-[#3b82f6]">Pro Lifetime</span>
             </p>
           </div>
 
