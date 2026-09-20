@@ -609,6 +609,26 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
                       </div>
                     </div>
 
+                    {/* Visa Sponsorship Filter Toggle */}
+                    <div className="p-3 bg-gradient-to-r from-cyan-950/30 to-purple-950/20 border border-cyan-500/20 rounded-xl flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-semibold text-white flex items-center gap-1.5">
+                          <span className="text-cyan-400">🌍</span>
+                          <span>Apply to India Jobs &amp; International Visa Sponsorship</span>
+                        </div>
+                        <div className="text-[11px] text-gray-400">Target top companies in India &amp; overseas offering work visa / relocation from India</div>
+                      </div>
+
+                      <input
+                        type="checkbox"
+                        checked={candidateProfile.visa_sponsorship !== false}
+                        onChange={(e) =>
+                          setCandidateProfile((prev: any) => ({ ...prev, visa_sponsorship: e.target.checked }))
+                        }
+                        className="w-4 h-4 accent-cyan-400 cursor-pointer"
+                      />
+                    </div>
+
                     {/* Automation Daily Schedule Configuration Box */}
                     <div className="p-4 bg-gradient-to-r from-purple-900/20 via-indigo-900/10 to-transparent border border-purple-500/20 rounded-2xl space-y-3">
                       <div className="flex items-center justify-between">
@@ -661,19 +681,20 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
 
                         <div>
                           <label className="block text-[11px] text-gray-400 mb-1">
-                            Max Daily Submissions
+                            Submissions Limit
                           </label>
                           <select
-                            value={candidateProfile.max_applications_per_day || 5}
+                            value={candidateProfile.max_applications_per_day || 9999}
                             onChange={(e) =>
                               setCandidateProfile((prev: any) => ({ ...prev, max_applications_per_day: parseInt(e.target.value, 10) }))
                             }
-                            className="w-full bg-[#181d2a] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none cursor-pointer hover:border-purple-500"
+                            className="w-full bg-[#181d2a] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none cursor-pointer hover:border-purple-500 font-medium text-cyan-300"
                           >
-                            <option value={3} className="bg-[#121622] text-white">3 jobs / day</option>
-                            <option value={5} className="bg-[#121622] text-white">5 jobs / day (Recommended)</option>
-                            <option value={10} className="bg-[#121622] text-white">10 jobs / day (Aggressive)</option>
-                            <option value={15} className="bg-[#121622] text-white">15 jobs / day (Maximum)</option>
+                            <option value={9999} className="bg-[#121622] text-emerald-400 font-bold">♾️ Unlimited Applications (Full Sweep)</option>
+                            <option value={25} className="bg-[#121622] text-white">25 jobs / run</option>
+                            <option value={15} className="bg-[#121622] text-white">15 jobs / run</option>
+                            <option value={10} className="bg-[#121622] text-white">10 jobs / run</option>
+                            <option value={5} className="bg-[#121622] text-white">5 jobs / run</option>
                           </select>
                         </div>
                       </div>

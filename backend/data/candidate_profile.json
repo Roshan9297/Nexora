@@ -1,0 +1,25 @@
+{
+  "name": "Candidate",
+  "email": "candidate@example.com",
+  "phone": "+1 (555) 019-2834",
+  "linkedin": "https://linkedin.com/in/candidate",
+  "github": "https://github.com/candidate",
+  "portfolio": "https://candidate.dev",
+  "target_roles": [
+    "Software Engineer",
+    "Full Stack Developer",
+    "AI Engineer"
+  ],
+  "target_locations": [
+    "India (Bengaluru, Hyderabad, Remote)",
+    "Remote Worldwide",
+    "International (Visa Sponsorship Provided)"
+  ],
+  "min_salary": "₹25,00,000 / $120,000",
+  "visa_sponsorship": true,
+  "auto_apply_enabled": true,
+  "daily_run_hour": 9,
+  "max_applications_per_day": 9999,
+  "resume_filename": "master_resume.pdf",
+  "resume_text": "Senior Software Engineer\nExpert in Python, TypeScript, React, Next.js, Node.js, FastAPI, PostgreSQL, and Cloud DevOps.\nProven track record of designing high-scale distributed backends, AI agents, and intuitive web interfaces.\nExperience: Spearheaded microservices serving 10M+ daily events, cut latency 40%, led CI/CD automation."
+}
