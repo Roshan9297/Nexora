@@ -268,7 +268,6 @@ export function MoviePlayer({
           <iframe
             src={getEmbedUrl()}
             className="w-full h-full"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
           />
