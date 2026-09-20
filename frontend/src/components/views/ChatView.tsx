@@ -86,22 +86,27 @@ function extractPlayableMedia(content: string, userPrompt?: string) {
       return { type: 'video' as const, query: q };
     }
 
-    // Song detection: ONLY if user explicitly asks for a song, music, audio, or says "listen to"
-    if (/listen\s+to|\b(?:song|music|track|audio|soundtrack)\b/i.test(p)) {
+    // 2. Song / Music detection (Prioritize BEFORE movies!)
+    const isSong = /\b(?:song|music|track|audio|soundtrack|listen\s+to|mp3|sing|lyrics)\b/i.test(p) ||
+      /\b(?:shape\s+of\s+you|ed\s+sheeran|believer|despacito|faded|alan\s+walker|taylor\s+swift|eminem|arijit\s+singh|justin\s+bieber|coldplay|billie\s+eilish|the\s+weeknd|dua\s+lipa|bad\s+bunny|bruno\s+mars|post\s+malone|imagine\s+dragons|bts)\b/i.test(p);
+
+    if (isSong) {
       const q = p
-        .replace(/^(?:play|listen\s+to)\s+(?:the\s+)?/i, '')
-        .replace(/\b(?:song|music|track|audio|soundtrack)\b/gi, '')
+        .replace(/^(?:i\s+want\s+to\s+|can\s+you\s+|please\s+)?(?:play|listen\s+to|stream|sing)\s+(?:the\s+)?/i, '')
+        .replace(/\b(?:in\s+(?:the\s+)?(?:new\s+)?chat|in\s+chat|here|now)\b/gi, '')
+        .replace(/\b(?:song|music|track|audio|soundtrack|mp3)\b/gi, '')
         .trim();
       if (q) return { type: 'song' as const, query: q };
     }
 
-    // Movies (e.g. "play Inception", "watch Inception on Netflix", "play korean kanakaraju", "stream Oppenheimer")
+    // 3. Movies (e.g. "play Inception", "watch Inception on Netflix", "play korean kanakaraju", "stream Oppenheimer")
     const platformMatch = p.match(/\b(?:on|in|from)\s+(netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|apple(?:\s*tv)?)\b/i);
     const targetPlatform = platformMatch ? platformMatch[1].toLowerCase() : 'all';
 
-    if (/^(?:play|watch|stream|show)\b/i.test(p) || /\b(?:movie|film|cinema)\b/i.test(p) || platformMatch) {
+    if (/^(?:i\s+want\s+to\s+|can\s+you\s+|please\s+)?(?:play|watch|stream|show)\b/i.test(p) || /\b(?:movie|film|cinema)\b/i.test(p) || platformMatch) {
       const cleanTitle = p
-        .replace(/^(?:play|watch|stream|show)\s+(?:the\s+)?(?:movie\s+)?/i, '')
+        .replace(/^(?:i\s+want\s+to\s+|can\s+you\s+|please\s+)?(?:play|watch|stream|show)\s+(?:the\s+)?(?:movie\s+)?/i, '')
+        .replace(/\b(?:in\s+(?:the\s+)?(?:new\s+)?chat|in\s+chat|here|now)\b/gi, '')
         .replace(/\b(?:on|in|from)\s+(netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|apple(?:\s*tv)?)\b/i, '')
         .replace(/\b(?:movie|film|cinema)\b/i, '')
         .trim();

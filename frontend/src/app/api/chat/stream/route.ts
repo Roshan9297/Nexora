@@ -159,6 +159,21 @@ export async function POST(req: NextRequest) {
       ...formattedMessages.filter((m) => m.role !== 'system'),
     ];
 
+    // For media, entertainment, songs, and games: stream instantly via local intelligence engine with zero credit dependency!
+    const lowerMsg = lastUserMsg.toLowerCase().trim();
+    const isEntertainmentRequest =
+      /\b(?:snake|tictactoe|tic[\s-]?tac[\s-]?toe|2048|arcade)\b/i.test(lowerMsg) ||
+      /\b(?:song|music|track|audio|soundtrack|listen\s+to|mp3|sing|lyrics)\b/i.test(lowerMsg) ||
+      /\b(?:shape\s+of\s+you|ed\s+sheeran|believer|despacito|faded|alan\s+walker|taylor\s+swift|eminem|arijit\s+singh|justin\s+bieber|coldplay|billie\s+eilish|the\s+weeknd|dua\s+lipa|bad\s+bunny|bruno\s+mars|post\s+malone|imagine\s+dragons|bts)\b/i.test(lowerMsg) ||
+      /\b(?:anime|k-drama|kdrama|tv\s*series|web\s*series)\b/i.test(lowerMsg) ||
+      /\b(?:attack\s+on\s+titan|naruto|one\s+piece|jujutsu\s+kaisen|demon\s+slayer|solo\s+leveling|bleach|dragon\s+ball|death\s+note|stranger\s+things|breaking\s+bad|game\s+of\s+thrones|wednesday|the\s+boys|loki|dark|money\s+heist|mirzapur|squid\s+game)\b/i.test(lowerMsg) ||
+      /\b(?:movie|film|cinema)\b/i.test(lowerMsg) ||
+      /^(?:i\s+want\s+to\s+|can\s+you\s+|please\s+)?(?:play|watch|stream|listen\s+to)\b/i.test(lowerMsg);
+
+    if (isEntertainmentRequest) {
+      return streamOfflineTokens(lastUserMsg, reasoning_mode, formattedMessages);
+    }
+
     const payload = {
       model: 'openai',
       messages: formattedMessages,
@@ -249,6 +264,15 @@ export async function POST(req: NextRequest) {
                 return;
               }
 
+              // Intercept Pollinations credit warnings and replace with offline response
+              if (/not\s+enough\s+credits|doesn't\s+have\s+enough\s+credits|Pollinations\s+account/i.test(raw)) {
+                const fallback = generateOfflineResponse(lastUserMsg, reasoning_mode, formattedMessages);
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: fallback.content })}\n\n`));
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                controller.close();
+                return;
+              }
+
               try {
                 const parsed = JSON.parse(raw);
                 const delta = parsed.choices?.[0]?.delta;
@@ -265,6 +289,14 @@ export async function POST(req: NextRequest) {
 
                 // Handle regular content tokens
                 if (delta.content) {
+                  if (/not\s+enough\s+credits|doesn't\s+have\s+enough\s+credits|Pollinations\s+account/i.test(delta.content)) {
+                    const fallback = generateOfflineResponse(lastUserMsg, reasoning_mode, formattedMessages);
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: fallback.content })}\n\n`));
+                    controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                    controller.close();
+                    return;
+                  }
+
                   if (inThought && !thoughtClosed) {
                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: '\n</thought>\n\n' })}\n\n`));
                     thoughtClosed = true;

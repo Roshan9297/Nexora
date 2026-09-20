@@ -84,6 +84,12 @@ export function MoviePlayer({
   const imdbId = movieData?.imdbId;
   const tmdbId = movieData?.tmdbId;
   const isSeries = movieData?.mediaType === 'series';
+
+  // If the resolved media is actually a song or music single, delegate seamlessly to SongPlayer!
+  if (movieData?.mediaType === 'song' || /\b(?:single\s+by|song\s+by|music\s+video)\b/i.test(movieData?.description || '')) {
+    return <SongPlayer query={movieData?.title || query} />;
+  }
+
   // Use resolved IMDb or TMDb ID. NEVER fall back to hardcoded Inception (tt1375666)!
   const targetId = isSeries ? tmdbId || imdbId : imdbId || tmdbId;
   const title = movieData?.title || query;

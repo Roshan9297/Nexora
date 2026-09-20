@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
   let imdbId: string | null = null;
   let tmdbId: string | null = null;
   let fallbackImdb: any = null;
-  let mediaType: 'movie' | 'series' = isExplicitSeries ? 'series' : 'movie';
+  let mediaType: 'movie' | 'series' | 'song' = isExplicitSeries ? 'series' : 'movie';
   let movieTitle = coreTitle;
   let poster: string | null = null;
   let synopsis = '';
@@ -179,6 +179,8 @@ export async function GET(req: NextRequest) {
 
         if (/anime|television series|tv series|animated series/i.test((sumRes.description || '') + ' ' + (sumRes.extract || ''))) {
           mediaType = 'series';
+        } else if (/\b(?:song|single|music\s*video|track|recording\s*by|studio\s*album)\b/i.test((sumRes.description || '') + ' ' + (sumRes.extract || ''))) {
+          mediaType = 'song';
         }
       }
 

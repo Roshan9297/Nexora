@@ -45,22 +45,6 @@ export function generateOfflineResponse(
     };
   }
 
-  // Movies
-  if (/\b(?:movie|film|cinema)\b/i.test(lower) || /^(?:play|watch|stream)\s+(?!game|snake|tictactoe|2048|music|song)/i.test(lower)) {
-    const cleanMovie = q
-      .replace(/^(?:play|watch|stream|show)\s+(?:the\s+)?(?:movie\s+)?/i, "")
-      .replace(/\b(?:on|in|from)\s+(?:netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|apple(?:\s*tv)?)\b/i, "")
-      .replace(/\b(?:movie|film|cinema)\b/i, "")
-      .trim() || "Featured Movie";
-
-    return {
-      thought: reasoningMode
-        ? `Detected movie streaming query for "${cleanMovie}".\nSelecting multi-server movie player hub.`
-        : undefined,
-      content: `:::movie{query="${cleanMovie}", platform="all"}:::\n\n### 🍿 Streaming: **${cleanMovie}**\n\nI have loaded **${cleanMovie}** into your Cinema Player above. Select between Server 1 (VidLink Pro HD) and Server 2 (2Embed) for uninterrupted streaming without subscription barriers!`,
-    };
-  }
-
   // Games (100% Offline Capable in browser!)
   if (/play\s+snake/i.test(lower)) {
     return {
@@ -90,12 +74,35 @@ export function generateOfflineResponse(
     };
   }
 
-  // Songs / Music
-  if (/^(?:play|listen\s+to)\s+(?:the\s+)?(?:song|music|track)?/i.test(lower)) {
-    const songName = q.replace(/^(?:play|listen\s+to)\s+(?:the\s+)?(?:song\s+)?/i, "").replace(/song$/i, "").trim() || "Music";
+  const cleanText = q
+    .replace(/^(?:i\s+want\s+to\s+|can\s+you\s+|please\s+)?(?:play|watch|stream|listen\s+to|show)\s+(?:the\s+)?/i, "")
+    .replace(/\s+\b(?:in\s+(?:the\s+)?(?:new\s+)?chat|in\s+chat|here|now)\b/gi, "")
+    .trim();
+
+  // Songs / Music (Prioritize before movies!)
+  const isSong = /\b(?:song|music|track|audio|soundtrack|listen\s+to|mp3|sing|lyrics)\b/i.test(lower) ||
+    /\b(?:shape\s+of\s+you|ed\s+sheeran|believer|despacito|faded|alan\s+walker|taylor\s+swift|eminem|arijit\s+singh|justin\s+bieber|coldplay|billie\s+eilish|the\s+weeknd|dua\s+lipa|bad\s+bunny|bruno\s+mars|post\s+malone|imagine\s+dragons|bts)\b/i.test(lower);
+
+  if (isSong) {
+    const songName = cleanText.replace(/\b(?:song|music|track|audio|soundtrack|mp3)\b/gi, "").trim() || "Music";
     return {
       thought: reasoningMode ? `Loading music player for "${songName}".` : undefined,
-      content: `:::song{query="${songName}"}:::\n\n### 🎵 Now Playing: **${songName}**\n\nI have loaded the music stream for **${songName}** into your audio player above.`,
+      content: `:::song{query="${songName}"}:::\n\n### 🎵 Now Playing: **${songName}**\n\nI have loaded the music stream for **${songName}** into your audio player above. Enjoy the music!`,
+    };
+  }
+
+  // Movies
+  if (/\b(?:movie|film|cinema)\b/i.test(lower) || /^(?:i\s+want\s+to\s+|can\s+you\s+|please\s+)?(?:play|watch|stream)\b/i.test(lower)) {
+    const cleanMovie = cleanText
+      .replace(/\b(?:on|in|from)\s+(?:netflix|prime(?:\s+video)?|hotstar|disney(?:\+\s*hotstar)?|jiocinema|apple(?:\s*tv)?)\b/i, "")
+      .replace(/\b(?:movie|film|cinema)\b/i, "")
+      .trim() || "Featured Movie";
+
+    return {
+      thought: reasoningMode
+        ? `Detected movie streaming query for "${cleanMovie}".\nSelecting multi-server movie player hub.`
+        : undefined,
+      content: `:::movie{query="${cleanMovie}", platform="all"}:::\n\n### 🍿 Streaming: **${cleanMovie}**\n\nI have loaded **${cleanMovie}** into your Cinema Player above. Select between Server 1 (VidLink Pro HD) and Server 2 (2Embed) for uninterrupted streaming without subscription barriers!`,
     };
   }
 
