@@ -187,7 +187,7 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
   const handleMatch = async () => {
     setIsMatching(true);
     try {
-      const res = await matchResumeToJob(resumeText, jobDescription, settings);
+      const res = await matchResumeToJob(resumeText || '', jobDescription, settings);
       setMatchResult(res.analysis);
     } catch (err: any) {
       alert(`Match failed: ${err.message}`);
@@ -199,7 +199,7 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
   const handleTailor = async () => {
     setIsTailoring(true);
     try {
-      const res = await tailorResume(resumeText, jobDescription, settings);
+      const res = await tailorResume(resumeText || '', jobDescription, settings);
       setTailoredResult(res.tailored_resume);
     } catch (err: any) {
       alert(`Tailoring failed: ${err.message}`);
@@ -211,7 +211,7 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
   const handleCoverLetter = async () => {
     setIsGeneratingLetter(true);
     try {
-      const res = await generateCoverLetter(resumeText, jobDescription, companyName, letterTone, settings);
+      const res = await generateCoverLetter(resumeText || '', jobDescription, companyName, letterTone, settings);
       setCoverLetterResult(res.cover_letter);
     } catch (err: any) {
       alert(`Cover letter failed: ${err.message}`);
@@ -223,8 +223,8 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
   const handleFillApps = async () => {
     setIsFilling(true);
     try {
-      const qArray = screeningQuestions.split('\n').filter((q) => q.trim());
-      const res = await fillJobApplications(resumeText, qArray, settings);
+      const qArray = (screeningQuestions || '').split('\n').filter((q) => q.trim());
+      const res = await fillJobApplications(resumeText || '', qArray, settings);
       setFilledAnswers(res.answers);
     } catch (err: any) {
       alert(`Autofill failed: ${err.message}`);
@@ -285,11 +285,12 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
 
   // Auto-Applier Robot Handlers
   const handleSaveProfile = async () => {
+    const safeResume = resumeText || '';
     const updated = {
       ...candidateProfile,
-      resume_text: resumeText,
-      target_roles: targetRolesInput.split(',').map((r) => r.trim()).filter(Boolean),
-      target_locations: targetLocationsInput.split(',').map((l) => l.trim()).filter(Boolean),
+      resume_text: safeResume,
+      target_roles: (targetRolesInput || '').split(',').map((r) => r.trim()).filter(Boolean),
+      target_locations: (targetLocationsInput || '').split(',').map((l) => l.trim()).filter(Boolean),
     };
     try {
       await saveCandidateProfile(updated);
@@ -308,10 +309,11 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
     try {
       if (file.name.endsWith('.pdf') || file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
         const docRes = await uploadDocument(file);
-        setResumeText(docRes.text);
-        setCandidateProfile((prev: any) => ({ ...prev, resume_filename: file.name, resume_text: docRes.text }));
+        const extracted = docRes.text || '';
+        setResumeText(extracted);
+        setCandidateProfile((prev: any) => ({ ...prev, resume_filename: file.name, resume_text: extracted }));
       } else {
-        const text = await file.text();
+        const text = (await file.text()) || '';
         setResumeText(text);
         setCandidateProfile((prev: any) => ({ ...prev, resume_filename: file.name, resume_text: text }));
       }
@@ -323,7 +325,8 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
   };
 
   const handleRunAutoApply = async () => {
-    if (!resumeText.trim()) {
+    const currentResume = resumeText || '';
+    if (!currentResume.trim()) {
       alert('Please upload or paste your resume first before starting auto-apply.');
       return;
     }
@@ -335,9 +338,9 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
       // First ensure profile is saved with latest text
       const updatedProfile = {
         ...candidateProfile,
-        resume_text: resumeText,
-        target_roles: targetRolesInput.split(',').map((r) => r.trim()).filter(Boolean),
-        target_locations: targetLocationsInput.split(',').map((l) => l.trim()).filter(Boolean),
+        resume_text: currentResume,
+        target_roles: (targetRolesInput || '').split(',').map((r) => r.trim()).filter(Boolean),
+        target_locations: (targetLocationsInput || '').split(',').map((l) => l.trim()).filter(Boolean),
       };
       await saveCandidateProfile(updatedProfile);
 
