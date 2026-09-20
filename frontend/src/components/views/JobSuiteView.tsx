@@ -482,15 +482,15 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
 
                   <textarea
                     rows={12}
-                    value={resumeText}
+                    value={resumeText || ''}
                     onChange={(e) => setResumeText(e.target.value)}
                     placeholder="Paste or upload your master resume here..."
                     className="w-full bg-[#181d2a] border border-white/10 rounded-xl p-3 text-xs text-white placeholder-gray-500 outline-none focus:border-purple-500 font-mono resize-none leading-relaxed"
                   />
 
                   <div className="flex items-center justify-between text-xs text-gray-400">
-                    <span>Active File: <strong className="text-purple-300">{candidateProfile.resume_filename || 'master_resume.pdf'}</strong></span>
-                    <span>{resumeText.split(/\s+/).filter(Boolean).length} words</span>
+                    <span>Active File: <strong className="text-purple-300">{candidateProfile?.resume_filename || 'master_resume.pdf'}</strong></span>
+                    <span>{(resumeText || '').split(/\s+/).filter(Boolean).length} words</span>
                   </div>
                 </div>
               </div>
