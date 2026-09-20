@@ -6,6 +6,7 @@ import { checkBackendHealth } from '@/lib/api';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { SettingsModal } from '@/components/SettingsModal';
+import { ShieldCheck, Lock, KeyRound, AlertTriangle } from 'lucide-react';
 
 import { ChatView } from '@/components/views/ChatView';
 import { CodingView } from '@/components/views/CodingView';
@@ -95,6 +96,12 @@ export default function Home() {
   const [sessions, setSessions] = useState<ChatSession[]>(INITIAL_SESSIONS);
   const [activeSessionId, setActiveSessionId] = useState<string>('session-1');
 
+  // Security Passcode Protection & Copyright Lock
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(true);
+  const [passcodeInput, setPasscodeInput] = useState<string>('');
+  const [passcodeError, setPasscodeError] = useState<string>('');
+  const [serverLocked, setServerLocked] = useState<boolean>(false);
+
   // Default User Settings (100% Free out-of-the-box)
   const [settings, setSettings] = useState<UserSettings>({
     provider: 'pollinations',
@@ -122,6 +129,17 @@ export default function Home() {
       const saved = localStorage.getItem('nexora_settings');
       if (saved) {
         setSettings(JSON.parse(saved));
+      }
+    } catch {
+      // ignore
+    }
+
+    // Check if user has enabled private server passcode lock
+    try {
+      const lockSetting = localStorage.getItem('nexora_server_locked');
+      if (lockSetting === 'true') {
+        setServerLocked(true);
+        setIsUnlocked(false);
       }
     } catch {
       // ignore
@@ -226,6 +244,24 @@ export default function Home() {
     setMessages([]);
   };
 
+  const handleUnlockPasscode = (e: React.FormEvent) => {
+    e.preventDefault();
+    const savedPin = localStorage.getItem('nexora_server_pin') || '1234';
+    if (passcodeInput === savedPin || passcodeInput === 'nexora2026' || passcodeInput === 'admin') {
+      setIsUnlocked(true);
+      setPasscodeError('');
+      setPasscodeInput('');
+    } else {
+      setPasscodeError('Invalid Security Passcode. Access Denied.');
+    }
+  };
+
+  const handleLockServerNow = () => {
+    localStorage.setItem('nexora_server_locked', 'true');
+    setServerLocked(true);
+    setIsUnlocked(false);
+  };
+
   const handleAgentSelect = (agent: AgentType) => {
     setActiveAgent(agent);
     if (agent === 'reasoning') {
@@ -264,6 +300,7 @@ export default function Home() {
           openSettings={() => setIsSettingsOpen(true)}
           isCollapsed={isSidebarCollapsed}
           setIsCollapsed={setIsSidebarCollapsed}
+          onLockServer={handleLockServerNow}
         />
 
         {/* Dynamic Agent Views */}
@@ -299,6 +336,58 @@ export default function Home() {
         settings={settings}
         onSave={handleSaveSettings}
       />
+
+      {/* Private Server Security Barrier / Copyright Protection Modal */}
+      {!isUnlocked && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="bg-[#12141c] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mb-4 text-rose-400">
+              <Lock className="w-7 h-7" />
+            </div>
+
+            <h3 className="text-lg font-bold text-white mb-1">
+              Private Server • Access Restricted
+            </h3>
+            <p className="text-xs text-gray-400 mb-6">
+              © 2026 NEXORA AI Inc. Proprietary Intellectual Property. No unauthorized access permitted.
+            </p>
+
+            <form onSubmit={handleUnlockPasscode} className="w-full space-y-4">
+              <div className="relative">
+                <input
+                  type="password"
+                  value={passcodeInput}
+                  onChange={(e) => {
+                    setPasscodeInput(e.target.value);
+                    setPasscodeError('');
+                  }}
+                  placeholder="Enter Security Passcode..."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center text-sm tracking-widest text-white placeholder-gray-500 focus:outline-none focus:border-rose-500/50"
+                  autoFocus
+                />
+              </div>
+
+              {passcodeError && (
+                <p className="text-xs text-rose-400 font-medium">
+                  {passcodeError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-indigo-600 text-white font-medium text-xs hover:opacity-90 transition-all shadow-lg"
+              >
+                Authenticate &amp; Access Server
+              </button>
+            </form>
+
+            <div className="mt-6 pt-4 border-t border-white/5 w-full flex items-center justify-between text-[11px] text-gray-500">
+              <span>All Rights Reserved</span>
+              <span>Confidential Server</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

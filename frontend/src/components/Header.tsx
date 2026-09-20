@@ -11,6 +11,8 @@ import {
   PanelLeftOpen,
   Wifi,
   WifiOff,
+  ShieldCheck,
+  Lock,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -23,6 +25,7 @@ interface HeaderProps {
   openSettings: () => void;
   isCollapsed?: boolean;
   setIsCollapsed?: (val: boolean) => void;
+  onLockServer?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -35,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
   openSettings,
   isCollapsed,
   setIsCollapsed,
+  onLockServer,
 }) => {
   const [isOnline, setIsOnline] = React.useState(true);
 
@@ -109,6 +113,27 @@ export const Header: React.FC<HeaderProps> = ({
             <WifiOff className="w-3 h-3 text-amber-400" />
             <span>Offline Mode</span>
           </div>
+        )}
+
+        {/* Private Server Copyright Shield */}
+        <div
+          className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shadow-sm"
+          title="NEXORA Private Server • Copyright Protected & Access Restricted"
+        >
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Private Server • © 2026 NEXORA</span>
+        </div>
+
+        {/* Lock Server Access Button */}
+        {onLockServer && (
+          <button
+            onClick={onLockServer}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 hover:bg-rose-500/20 text-xs font-medium transition-colors"
+            title="Lock Private Server & Prevent Access"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Lock Server</span>
+          </button>
         )}
 
         {/* Deep Reasoning Mode Toggle */}

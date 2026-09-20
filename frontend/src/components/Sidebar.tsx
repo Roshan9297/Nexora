@@ -295,6 +295,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <SettingsIcon className="w-4 h-4 text-[#8e8e8e] group-hover:text-white transition-colors" />
         </button>
+
+        {/* Official Copyright Protected Banner */}
+        <div className="mt-1 px-2.5 py-1 flex items-center justify-between text-[10px] text-[#6e6e6e] font-mono">
+          <span>© 2026 NEXORA AI</span>
+          <span className="text-emerald-500 font-sans">Restricted Server</span>
+        </div>
       </div>
     </aside>
   );

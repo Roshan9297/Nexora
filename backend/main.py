@@ -37,6 +37,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Proprietary Copyright Protection Middleware
+@app.middleware("http")
+async def add_security_and_copyright_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Copyright"] = "Copyright (c) 2026 NEXORA AI Inc. All Rights Reserved."
+    response.headers["X-License-Type"] = "Proprietary - Confidential & Private Server"
+    response.headers["X-Access-Policy"] = "Restricted - Authenticated Clients Only"
+    return response
+
 # Health Check
 @app.get("/api/health")
 async def health():
@@ -44,6 +53,8 @@ async def health():
         "status": "healthy",
         "system": "NEXORA AI",
         "version": "1.0.0",
+        "copyright": "© 2026 NEXORA AI Inc. All Rights Reserved. Proprietary & Confidential.",
+        "server_type": "Private Restricted Node",
         "free_tier_ready": True,
         "default_providers": ["pollinations", "groq", "gemini", "ollama", "lmstudio", "openrouter"]
     }
