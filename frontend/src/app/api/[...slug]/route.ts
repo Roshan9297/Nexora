@@ -249,30 +249,35 @@ async function forwardOrFallback(req: NextRequest, { params }: { params: Promise
 
   // Job Tracker
   if (path === 'jobs/tracker') {
-    return NextResponse.json({
-      applications: [
-        {
-          id: 'app-1',
-          company: 'Stripe',
-          position: 'Senior Full-Stack Engineer',
-          status: 'Interviewing',
-          date: '2026-09-15',
-          notes: 'System design round scheduled.',
-          salary: '$180,000',
-          url: 'https://stripe.com/jobs',
-        },
-        {
-          id: 'app-2',
-          company: 'Vercel',
-          position: 'Next.js AI Platform Specialist',
-          status: 'Applied',
-          date: '2026-09-17',
-          notes: 'Tailored resume submitted.',
-          salary: '$175,000',
-          url: 'https://vercel.com/careers',
-        },
-      ],
-    });
+    if (method === 'POST') {
+      if (Array.isArray(body)) {
+        (globalThis as any).__nexora_tracker = body;
+      }
+      return NextResponse.json({ success: true, count: Array.isArray(body) ? body.length : 0 });
+    }
+    const currentTracker = (globalThis as any).__nexora_tracker || [
+      {
+        id: 'app-1',
+        company: 'Stripe',
+        position: 'Senior Full-Stack Engineer',
+        status: 'Interviewing',
+        date: '2026-09-15',
+        notes: 'System design round scheduled.',
+        salary: '$180,000',
+        url: 'https://stripe.com/jobs',
+      },
+      {
+        id: 'app-2',
+        company: 'Vercel',
+        position: 'Next.js AI Platform Specialist',
+        status: 'Applied',
+        date: '2026-09-17',
+        notes: 'Tailored resume submitted.',
+        salary: '$175,000',
+        url: 'https://vercel.com/careers',
+      },
+    ];
+    return NextResponse.json({ applications: currentTracker });
   }
 
   // Documents Upload Fallback

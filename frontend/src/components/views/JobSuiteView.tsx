@@ -377,9 +377,21 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
       if (res.success) {
         confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
         setAutoApplyMessage(res.message);
-        // Refresh tracker and logs
-        const appsRes = await getJobApplications();
-        if (appsRes.applications) setApplications(appsRes.applications);
+
+        // Directly merge newly submitted applications into state so they show up immediately
+        if (res.applied_jobs && res.applied_jobs.length > 0) {
+          setApplications((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const fresh = res.applied_jobs.filter((a: any) => !existingIds.has(a.id));
+            const merged = [...fresh, ...prev];
+            saveJobApplications(merged).catch(() => {});
+            return merged;
+          });
+        } else {
+          // Refresh tracker from API
+          const appsRes = await getJobApplications();
+          if (appsRes.applications) setApplications(appsRes.applications);
+        }
 
         const logsRes = await getAutoApplyLogs();
         if (logsRes.logs) setAutoApplyLogs(logsRes.logs);
@@ -734,9 +746,9 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
               </div>
 
               <div className="divide-y divide-white/5">
-                {applications.filter((a) => a.notes?.includes('Auto-Applied')).length > 0 ? (
+                {applications.filter((a) => a.notes?.includes('Auto-Applied') || a.id?.startsWith('auto-app') || a.status === 'Applied').length > 0 ? (
                   applications
-                    .filter((a) => a.notes?.includes('Auto-Applied'))
+                    .filter((a) => a.notes?.includes('Auto-Applied') || a.id?.startsWith('auto-app') || a.status === 'Applied')
                     .map((app) => (
                       <div key={app.id} className="p-4 px-6 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-white/[0.01] transition-colors">
                         <div className="space-y-1">
@@ -747,11 +759,16 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
                             </span>
                           </div>
                           <p className="text-xs text-gray-400">
-                            {app.company} • Applied on {app.date} • {app.salary}
+                            <strong className="text-purple-300">{app.company}</strong> • Applied on {app.date} • {app.salary}
                           </p>
+                          {app.notes && (
+                            <p className="text-[11px] text-gray-400 line-clamp-2 italic font-mono">
+                              {app.notes}
+                            </p>
+                          )}
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 shrink-0">
                           {app.url && (
                             <a
                               href={app.url}
