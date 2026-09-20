@@ -609,24 +609,74 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
                       </div>
                     </div>
 
-                    {/* Automation Daily Toggle */}
-                    <div className="p-3.5 bg-white/[0.02] border border-white/5 rounded-xl flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <Clock className="w-4 h-4 text-emerald-400" />
-                        <div>
-                          <div className="text-xs font-semibold text-white">Daily Background Auto-Scan</div>
-                          <div className="text-[11px] text-gray-400">Runs once every 24 hours automatically in backend</div>
+                    {/* Automation Daily Schedule Configuration Box */}
+                    <div className="p-4 bg-gradient-to-r from-purple-900/20 via-indigo-900/10 to-transparent border border-purple-500/20 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300">
+                            <Clock className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-semibold text-white flex items-center gap-2">
+                              <span>Automatic Daily Schedule</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono">
+                                {candidateProfile.auto_apply_enabled !== false ? 'ACTIVE (Daily)' : 'PAUSED'}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-gray-400">Autonomous 24/7 background robot scans &amp; applies every day</div>
+                          </div>
                         </div>
+
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={candidateProfile.auto_apply_enabled !== false}
+                            onChange={(e) =>
+                              setCandidateProfile((prev: any) => ({ ...prev, auto_apply_enabled: e.target.checked }))
+                            }
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                        </label>
                       </div>
 
-                      <input
-                        type="checkbox"
-                        checked={candidateProfile.auto_apply_enabled !== false}
-                        onChange={(e) =>
-                          setCandidateProfile((prev: any) => ({ ...prev, auto_apply_enabled: e.target.checked }))
-                        }
-                        className="w-4 h-4 accent-purple-500 cursor-pointer"
-                      />
+                      {/* Daily Schedule Parameters */}
+                      <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
+                        <div>
+                          <label className="block text-[11px] text-gray-400 mb-1">
+                            Daily Run Schedule
+                          </label>
+                          <select
+                            value={candidateProfile.schedule_frequency || 'daily'}
+                            onChange={(e) =>
+                              setCandidateProfile((prev: any) => ({ ...prev, schedule_frequency: e.target.value }))
+                            }
+                            className="w-full bg-[#181d2a] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none cursor-pointer hover:border-purple-500"
+                          >
+                            <option value="daily" className="bg-[#121622] text-white">Every 24 Hours (Daily)</option>
+                            <option value="twice_daily" className="bg-[#121622] text-white">Twice Daily (Every 12h)</option>
+                            <option value="hourly" className="bg-[#121622] text-white">Every 6 Hours (Fast Track)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] text-gray-400 mb-1">
+                            Max Daily Submissions
+                          </label>
+                          <select
+                            value={candidateProfile.max_applications_per_day || 5}
+                            onChange={(e) =>
+                              setCandidateProfile((prev: any) => ({ ...prev, max_applications_per_day: parseInt(e.target.value, 10) }))
+                            }
+                            className="w-full bg-[#181d2a] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none cursor-pointer hover:border-purple-500"
+                          >
+                            <option value={3} className="bg-[#121622] text-white">3 jobs / day</option>
+                            <option value={5} className="bg-[#121622] text-white">5 jobs / day (Recommended)</option>
+                            <option value={10} className="bg-[#121622] text-white">10 jobs / day (Aggressive)</option>
+                            <option value={15} className="bg-[#121622] text-white">15 jobs / day (Maximum)</option>
+                          </select>
+                        </div>
+                      </div>
                     </div>
 
                     <button
