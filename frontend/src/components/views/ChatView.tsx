@@ -147,6 +147,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
     scrollToBottom();
   }, [messages, isStreaming]);
 
+  // Faiza Voice Language Selector ('te-IN' | 'en-US' | 'en-IN' | 'hi-IN')
+  const [voiceLang, setVoiceLang] = useState<'en-US' | 'te-IN' | 'en-IN'>('en-US');
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+
+  // Helper to detect Telugu script in text
+  const isTeluguText = (text: string) => /[\u0C00-\u0C7F]/.test(text);
+
   // Voice Speech-to-Text via Web Speech API
   const toggleListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -163,7 +170,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
     const recognition = new SpeechRec();
     recognition.continuous = false;
     recognition.interimResults = false;
-    recognition.lang = 'en-US';
+    // Multi-language recognition: English or Telugu
+    recognition.lang = voiceLang === 'te-IN' ? 'te-IN' : 'en-US';
 
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event: any) => {
@@ -177,13 +185,74 @@ export const ChatView: React.FC<ChatViewProps> = ({
     recognition.start();
   };
 
-  // Text-to-Speech (read aloud)
-  const speakText = (text: string) => {
+  // Faiza Text-to-Speech (Natural Girl's Voice with English & Telugu support)
+  const speakText = (text: string, msgId?: string) => {
     if (!('speechSynthesis' in window)) return;
+    
+    // If already speaking this message, toggle stop
+    if (speakingId && msgId && speakingId === msgId) {
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
+      return;
+    }
+
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
+    if (msgId) setSpeakingId(msgId);
+
+    // Clean out markdown symbols and media tags for clear speech
+    const cleanText = text
+      .replace(/:::(song|video|game|movie|series)\{[^}]+\}:::/g, '')
+      .replace(/[*#`_~>\[\]()$]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    const voices = window.speechSynthesis.getVoices();
+    const hasTelugu = isTeluguText(cleanText) || voiceLang === 'te-IN';
+
+    // Prioritize natural female voices for Faiza
+    let selectedVoice = null;
+
+    if (hasTelugu) {
+      utterance.lang = 'te-IN';
+      // Find Telugu female voice or Indian female voice
+      selectedVoice = voices.find(
+        (v) => (v.lang.startsWith('te') || v.lang === 'te-IN') &&
+               (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('swara') || v.name.toLowerCase().includes('geeta') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('natural'))
+      ) || voices.find((v) => v.lang.startsWith('te') || v.lang === 'te-IN')
+        || voices.find((v) => (v.lang === 'en-IN' || v.lang === 'hi-IN') && (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('swara') || v.name.toLowerCase().includes('neerja')));
+    } else {
+      utterance.lang = 'en-US';
+      // Find top natural female voices (e.g. Jenny, Aria, Sonia, Samantha, Victoria, Zira, Google UK English Female, etc.)
+      selectedVoice = voices.find(
+        (v) =>
+          (v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('neural') || v.name.toLowerCase().includes('online')) &&
+          (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('jenny') || v.name.toLowerCase().includes('aria') || v.name.toLowerCase().includes('sonia'))
+      ) || voices.find(
+        (v) =>
+          (v.lang.startsWith('en')) &&
+          (v.name.toLowerCase().includes('female') ||
+           v.name.toLowerCase().includes('zira') ||
+           v.name.toLowerCase().includes('samantha') ||
+           v.name.toLowerCase().includes('victoria') ||
+           v.name.toLowerCase().includes('karen') ||
+           v.name.toLowerCase().includes('susan'))
+      ) || voices.find((v) => v.lang.startsWith('en'));
+    }
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+
+    // Warm, natural female pitch & cadence for Faiza
+    utterance.pitch = 1.15; // slightly higher feminine pitch
+    utterance.rate = 1.02;
+
+    utterance.onend = () => setSpeakingId(null);
+    utterance.onerror = () => setSpeakingId(null);
+
     window.speechSynthesis.speak(utterance);
   };
 
@@ -421,12 +490,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
                             </button>
 
                             <button
-                              onClick={() => speakText(msg.content)}
-                              className="hover:text-cyan-400 flex items-center gap-1 transition-colors ml-2"
-                              title="Read Aloud"
+                              onClick={() => speakText(msg.content, msg.id)}
+                              className={`hover:text-pink-400 flex items-center gap-1 transition-colors ml-2 ${
+                                speakingId === msg.id ? 'text-pink-400 animate-pulse font-medium' : 'text-gray-400'
+                              }`}
+                              title={speakingId === msg.id ? "Stop Faiza's Voice" : "Listen to Faiza (Voice Assistant)"}
                             >
                               <Volume2 className="w-3.5 h-3.5" />
-                              <span>Listen</span>
+                              <span>{speakingId === msg.id ? 'Stop Voice' : 'Listen (Faiza)'}</span>
                             </button>
 
                             <span className="ml-auto text-[10px] text-gray-400 font-mono">
@@ -455,8 +526,23 @@ export const ChatView: React.FC<ChatViewProps> = ({
       <div className="p-4 md:px-12 border-t border-white/5 bg-[#0d1017]/90 backdrop-blur-md">
         <form
           onSubmit={handleSubmit}
-          className="max-w-4xl mx-auto flex items-center gap-2 bg-[#131722] border border-white/10 rounded-2xl p-1.5 focus-within:border-cyan-500/50 shadow-xl transition-all"
+          className="max-w-4xl mx-auto flex items-center gap-2 bg-[#131722] border border-white/10 rounded-2xl p-1.5 focus-within:border-pink-500/50 shadow-xl transition-all"
         >
+          {/* Faiza Voice Language Selector */}
+          <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1">
+            <span className="text-[11px] font-semibold text-pink-400">🌸 Faiza</span>
+            <select
+              value={voiceLang}
+              onChange={(e) => setVoiceLang(e.target.value as any)}
+              className="bg-transparent text-[11px] text-gray-300 outline-none cursor-pointer hover:text-white"
+              title="Assistant Language"
+            >
+              <option value="en-US" className="bg-[#1a1a24] text-white">English</option>
+              <option value="te-IN" className="bg-[#1a1a24] text-white">తెలుగు (Telugu)</option>
+              <option value="en-IN" className="bg-[#1a1a24] text-white">English (India)</option>
+            </select>
+          </div>
+
           {/* Speech-to-text mic */}
           <button
             type="button"
@@ -464,9 +550,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
             className={`p-2.5 rounded-xl transition-colors ${
               isListening
                 ? 'bg-rose-500 text-white animate-pulse'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                : 'text-gray-400 hover:text-pink-300 hover:bg-pink-500/10'
             }`}
-            title={isListening ? 'Stop Listening' : 'Voice Input (Speech-to-Text)'}
+            title={isListening ? 'Stop Listening' : `Speak to Faiza in ${voiceLang === 'te-IN' ? 'Telugu' : 'English'}`}
           >
             {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
@@ -477,9 +563,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={
-              reasoningMode
-                ? 'Ask with Deep Reasoning enabled (o3 / R1)...'
-                : 'Message Nexora...'
+              voiceLang === 'te-IN'
+                ? 'ఫైజాతో తెలుగులో మాట్లాడండి లేదా టైప్ చేయండి...'
+                : reasoningMode
+                ? 'Ask Faiza with Deep Reasoning enabled...'
+                : 'Ask Faiza (Voice Assistant in English / తెలుగు)...'
             }
             className="flex-1 bg-transparent px-3 py-2 text-sm text-white placeholder-[#8e8e8e] outline-none"
           />
@@ -488,13 +576,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
           <button
             type="submit"
             disabled={!input.trim() || isStreaming}
-            className="p-2.5 rounded-xl bg-white text-black hover:bg-[#ececec] disabled:opacity-30 transition-all shadow-md"
+            className="p-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-indigo-500 text-white hover:opacity-90 disabled:opacity-30 transition-all shadow-md font-medium"
           >
             <Send className="w-4 h-4" />
           </button>
         </form>
 
-        <div className="max-w-4xl mx-auto mt-2 text-center text-[11.5px] text-[#8e8e8e]">
+        <div className="max-w-4xl mx-auto mt-2 flex items-center justify-between text-[11px] text-[#8e8e8e] px-2">
+          <span>🌸 <strong>Faiza</strong>: Multi-language Voice Assistant (English &amp; తెలుగు)</span>
           <span>Nexora can make mistakes. Verify important info.</span>
         </div>
       </div>

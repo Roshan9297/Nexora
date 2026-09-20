@@ -57,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
     document: { name: 'Document Agent', subtitle: 'PDF, DOCX & Text Extraction, Summaries & Q&A' },
     search: { name: 'Live Web Search Agent', subtitle: 'Real-time DuckDuckGo Web Search with Citations' },
     vision: { name: 'Vision Agent', subtitle: 'Multimodal Image Analysis, Diagram to Code & OCR' },
-    voice: { name: 'Voice Conversational Agent', subtitle: 'Two-Way Audio Speech-to-Text & Neural Audio Playback' },
+    voice: { name: 'Faiza Voice Assistant 🌸', subtitle: 'Natural Female Voice Assistant in English & Telugu (తెలుగు)' },
     image_gen: { name: 'Image Generation Studio', subtitle: 'Unlimited High-Definition Image Creation via Free Flux' },
     rag: { name: 'RAG Knowledge Base', subtitle: 'Semantic Vector Search & Grounded Context Q&A' },
     browser: { name: 'Browser Agent', subtitle: 'Live Web Page Scraper, Markdown Cleaner & Reader' },

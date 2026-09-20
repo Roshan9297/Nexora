@@ -107,19 +107,30 @@ export function generateOfflineResponse(
   }
 
   // 2. Greetings & Identity
-  if (/^(hi|hello|hey|greetings|hola|namaste|yo|good\s+(?:morning|afternoon|evening))\b/i.test(lower)) {
+  if (/^(hi|hello|hey|greetings|hola|namaste|namaskaram|yo|good\s+(?:morning|afternoon|evening))\b/i.test(lower)) {
+    const isTeluguGreeting = /namaskaram|ela\s+unnaru|bagunnara/i.test(lower);
     return {
       thought: reasoningMode
-        ? "User greeted the assistant. Preparing a welcoming overview of NEXORA features including offline resilience."
+        ? "User greeted assistant. Introducing Faiza female voice assistant with multilingual English and Telugu support."
         : undefined,
-      content: `Hello! I am **NEXORA AI**, your high-performance intelligent companion.\n\nEven when operating **offline without an internet connection**, I provide:\n- ⚡ **Offline Reasoning & Answers**: Instant coding, mathematics, logic, and problem solving.\n- 🕹️ **Built-in Offline Games**: Play Snake, Tic-Tac-Toe, and 2048 anytime with zero internet required.\n- 🎬 **Cinema & Series Hub**: Queue movies, anime, and TV series with multi-server streaming.\n- 💻 **Code Execution & Guidance**: Python, JavaScript, TypeScript, algorithms, and system design.\n\nHow can I help you today?`,
+      content: isTeluguGreeting
+        ? `నమస్కారం! నేను **ఫైజా (Faiza)**, మీ పర్సనల్ AI వాయిస్ అసిస్టెంట్. 🌸\n\nనేను మీకు తెలుగు మరియు ఇంగ్లీష్‌లలో సహాయం చేయగలను. మీకు ఈరోజు ఏమి సహాయం కావాలి?`
+        : `Hello! I am **Faiza (ఫైజా)**, your personal AI voice assistant powered by NEXORA. 🌸\n\nI can speak and assist you fluently in **English**, **Telugu (తెలుగు)**, and other languages.\n\n- 🎙️ **Voice Conversation**: Speak to me in English or Telugu!\n- 🎬 **Cinema & Songs**: Ask me to play any movie, song, or anime.\n- 💻 **Intelligence & Code**: Ask any coding, reasoning, or calculation questions.\n\nHow can I help you today?`,
     };
   }
 
-  if (/who\s+are\s+you|what\s+is\s+nexora|tell\s+me\s+about\s+yourself/i.test(lower)) {
+  if (/who\s+are\s+you|what\s+is\s+your\s+name|ni\s+peru|mee\s+peru|neevu\s+evaru|tell\s+me\s+about\s+yourself/i.test(lower)) {
     return {
-      thought: reasoningMode ? "Providing overview of NEXORA architecture and capabilities." : undefined,
-      content: `### ⚡ About NEXORA AI\n\n**NEXORA** is a next-generation AI workspace engineered for speed, privacy, and unrestricted capability.\n\n#### Key Features:\n1. **Always-On Intelligence**: Operates seamlessly online and offline with built-in reasoning and local intelligence fallbacks.\n2. **Digital Cinema & Anime Player**: Watch movies and TV/anime series from digital platforms across multiple ad-shielded HD streaming servers with season and episode selectors.\n3. **100% Offline Arcade**: Native interactive HTML5 games (Snake, 2048, Tic-Tac-Toe) built right into the chat.\n4. **Deep Reasoning Engine**: Transparent chain-of-thought step-by-step problem breakdown.\n5. **Developer Sandbox**: Full-stack programming, algorithm design, and code optimization.\n\nAsk me any question or request a task to get started!`,
+      thought: reasoningMode ? "Providing overview of Faiza female voice assistant identity." : undefined,
+      content: `### 🌸 I am Faiza (ఫైజా)
+I am your dedicated AI voice assistant designed to help you with voice conversations, coding, media streaming, and problem-solving.
+
+- 🗣️ **Languages**: English, Telugu (తెలుగు), Hindi, and more.
+- 🎙️ **Natural Female Voice**: Crisp, natural voice speech synthesis in multiple accents.
+- 🎬 **Digital Cinema & Music Hub**: Instant playback for songs, movies, anime, and games.
+- ⚡ **Offline & Online Resilience**: Zero latency and continuous assistance.
+
+మీరు నాతో తెలుగులో లేదా English లో మాట్లాడవచ్చు! How can I assist you right now?`,
     };
   }
 

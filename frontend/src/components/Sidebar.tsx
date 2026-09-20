@@ -201,7 +201,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 { id: 'browser' as AgentType, label: 'Browser Scraper', icon: Globe },
                 { id: 'document' as AgentType, label: 'Document Agent', icon: FileText },
                 { id: 'vision' as AgentType, label: 'Vision Agent', icon: Eye },
-                { id: 'voice' as AgentType, label: 'Voice Audio', icon: Mic },
+                { id: 'voice' as AgentType, label: 'Faiza Voice (🌸)', icon: Mic },
                 { id: 'image_gen' as AgentType, label: 'Image Gen (Flux)', icon: ImageIcon },
                 { id: 'email' as AgentType, label: 'Email Agent', icon: Mail },
                 { id: 'automation' as AgentType, label: 'Automation', icon: Zap },
