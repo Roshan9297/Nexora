@@ -174,6 +174,37 @@ async function forwardOrFallback(req: NextRequest, { params }: { params: Promise
         notes: "🤖 Auto-Applied by NEXORA Robot.\nResume tailored to JD with 98% ATS keyword alignment.\nLocation: Bengaluru / Hyderabad, India\nPortal: Google India Career Portal",
         salary: "₹38,00,000 - ₹62,00,000 CTC",
         url: "https://careers.google.com",
+        tailored_resume: `# Candidate Name - Senior Lead Engineer
+**Location**: Bengaluru, India | **Email**: candidate@example.com | **LinkedIn**: linkedin.com/in/candidate
+
+## Executive Summary
+Results-driven Senior Lead Engineer with 6+ years specializing in distributed high-scale backend microservices, real-time event streaming, and cloud platforms. Specifically tailored for Google India R&D Core Systems. Proven track record of reducing latency by 45% and architecting resilient services processing 10M+ daily events.
+
+## Core Technical Competencies
+- **Languages**: Python, TypeScript, Go, Java, SQL
+- **Frameworks & Cloud**: Next.js, FastAPI, Node.js, Docker, Kubernetes, GCP, Redis, PostgreSQL
+- **Practices**: Distributed System Design, Microservices, CI/CD Automation, STAR Engineering Method
+
+## Professional Experience
+### Lead Cloud & AI Systems Engineer | Tech Innovators
+*2022 - Present | Bengaluru, India*
+- **Situation**: Monolithic backend struggled with 10M+ daily API transactions during peak product usage.
+- **Task**: Spearhead microservices refactoring and distributed caching architecture to eliminate service bottlenecks.
+- **Action**: Engineered decoupled event-driven services utilizing Python, FastAPI, and Redis pub/sub clusters.
+- **Result**: Reduced average latency by 45% (p99 from 850ms to 92ms) and achieved 99.99% system availability.
+
+### Senior Full-Stack Engineer | Quantum Scale
+*2020 - 2022 | Hyderabad, India*
+- Orchestrated end-to-end cloud deployment pipelines across GCP and Docker, slashing build times by 55%.
+- Mentored a squad of 6 engineers in automated testing and scalable API design.`,
+        cover_letter: `Dear Hiring Team at Google / Microsoft India R&D,
+
+I am writing to express my strong enthusiasm for the Senior Lead Engineer position at your Bengaluru Tech Hub. With over 6 years of expertise building resilient distributed backends and scalable cloud architectures, I am eager to contribute to your core engineering initiatives.
+
+I look forward to discussing how my background aligns with your team's mission.
+
+Sincerely,
+Candidate`
       },
       {
         id: `auto-app-${Date.now()}-2`,
@@ -184,6 +215,27 @@ async function forwardOrFallback(req: NextRequest, { params }: { params: Promise
         notes: "🤖 Auto-Applied by NEXORA Robot.\nResume tailored to JD with 97% ATS keyword alignment.\nLocation: Amsterdam / London (Work Visa Sponsorship Provided for India Candidates)\nPortal: Lever ATS",
         salary: "€95,000 - €130,000 + Relocation & Visa",
         url: "https://jobs.lever.co",
+        tailored_resume: `# Candidate Name - Senior Full-Stack Engineer (EU Visa Ready)
+**Location**: India (Ready for Amsterdam/London Relocation) | **Email**: candidate@example.com
+
+## Professional Summary
+Senior Full-Stack Engineer with 6+ years of international-standard engineering experience. Tailored specifically for Booking.com / Spotify high-velocity engineering squads. Deep expertise in Next.js, React, Node.js, Python, and scalable distributed architectures.
+
+## Technical Skills
+- **Frontend**: React, Next.js, TypeScript, TailwindCSS, State Management
+- **Backend**: Node.js, Python, FastAPI, Microservices, GraphQL, PostgreSQL, Redis
+- **DevOps**: Docker, Kubernetes, AWS/GCP, CI/CD, Observability
+
+## Key Achievements (STAR Method)
+- Designed and launched customer-facing micro-frontends serving 8M+ monthly active travelers and listeners.
+- Implemented edge caching algorithms that improved Core Web Vitals to 98/100 and boosted user conversion by 18%.
+- Led cross-functional squads across distributed international time zones.`,
+        cover_letter: `Dear Hiring Manager at Booking.com / Spotify,
+
+I am excited to apply for the Senior Full-Stack Engineer role with Visa Sponsorship. With extensive experience architecting high-traffic platforms, I am eager to relocate and deliver immense engineering value to your European hubs.
+
+Best regards,
+Candidate`
       },
       {
         id: `auto-app-${Date.now()}-3`,
@@ -194,6 +246,26 @@ async function forwardOrFallback(req: NextRequest, { params }: { params: Promise
         notes: "🤖 Auto-Applied by NEXORA Robot.\nResume tailored to JD with 99% ATS keyword alignment.\nLocation: Sydney / Remote (Full Work Visa Sponsored from India)\nPortal: Greenhouse ATS",
         salary: "AUD $185,000 - $240,000 + Work Visa",
         url: "https://boards.greenhouse.io",
+        tailored_resume: `# Candidate Name - Staff Cloud Architect
+**Location**: India (Visa Ready for Sydney/Australia) | **Email**: candidate@example.com
+
+## Profile
+Distinguished Staff Cloud Architect and Engineering Leader with track record of designing multi-region cloud infrastructure and high-throughput collaboration APIs. Engineered solutions handling petabyte-scale assets.
+
+## Architectural Focus
+- Multi-Region Cloud Resilience (AWS, GCP, Kubernetes)
+- Distributed Event Brokers & Real-time Collaboration Engine
+- Zero-Trust Security, Infrastructure as Code (Terraform)
+
+## Engineering Highlights
+- Architected enterprise cloud infrastructure reducing compute overhead by $220,000 annually.
+- Led migration of 40+ legacy services into containerized Kubernetes pods with zero downtime.`,
+        cover_letter: `Dear Canva / Atlassian Team,
+
+I am writing to apply for the Staff Cloud Architect position offering TSS Visa sponsorship. Having designed high-scale cloud platforms, I welcome the opportunity to build the next generation of visual collaboration software.
+
+Sincerely,
+Candidate`
       },
       {
         id: `auto-app-${Date.now()}-4`,
@@ -204,6 +276,26 @@ async function forwardOrFallback(req: NextRequest, { params }: { params: Promise
         notes: "🤖 Auto-Applied by NEXORA Robot.\nResume tailored to JD with 96% ATS keyword alignment.\nLocation: India (Remote / Bangalore)\nPortal: Direct Company ATS",
         salary: "₹35,00,000 - ₹50,00,000 CTC",
         url: "https://jobs.ashbyhq.com",
+        tailored_resume: `# Candidate Name - Principal Backend Developer
+**Location**: Bengaluru, India | **Email**: candidate@example.com
+
+## Professional Summary
+Principal Backend Developer specializing in ultra-low latency transaction processing, distributed ledger structures, and high-frequency fintech APIs.
+
+## Core Expertise
+- High-Concurrency Transaction Engines (Python, Go, Redis)
+- Distributed ACID Compliance & Database Sharding (PostgreSQL)
+- Resilient Payment Gateways & Microservices Architecture
+
+## Experience
+- Spearheaded payment processing pipeline supporting 25,000 transactions per second with 99.999% fault tolerance.
+- Automated fraud detection heuristics reducing erroneous chargebacks by 38%.`,
+        cover_letter: `Dear Hiring Team at Razorpay / Flipkart,
+
+I am thrilled to submit my tailored resume for the Principal Backend Developer role. My deep experience with mission-critical transaction engines makes me an ideal fit for your scale.
+
+Warm regards,
+Candidate`
       },
       {
         id: `auto-app-${Date.now()}-5`,
@@ -214,6 +306,26 @@ async function forwardOrFallback(req: NextRequest, { params }: { params: Promise
         notes: "🤖 Auto-Applied by NEXORA Robot.\nResume tailored to JD with 97% ATS keyword alignment.\nLocation: Remote Worldwide (Visa Friendly / Global Payroll for India)\nPortal: RemoteOK ATS",
         salary: "$145,000 - $190,000",
         url: "https://remoteok.com",
+        tailored_resume: `# Candidate Name - Senior AI Platform Specialist
+**Location**: Remote Worldwide / India | **Email**: candidate@example.com
+
+## Professional Summary
+Senior AI Platform Specialist and Open Source contributor with extensive background in building autonomous multi-agent pipelines, LLM orchestrations, and scalable developer tools.
+
+## Skills
+- Autonomous Agents, LLM Fine-Tuning, Prompt Engineering, Vector RAG
+- Python, TypeScript, Next.js, LangChain, Ollama, Docker
+- Asynchronous Remote Collaboration & Distributed Systems
+
+## Standout Achievements
+- Built autonomous AI developer workflows saving 150+ developer hours weekly.
+- Deployed production RAG knowledge bases with sub-100ms retrieval latencies.`,
+        cover_letter: `Dear Automattic / GitLab Team,
+
+As an advocate for distributed open source engineering, I am excited to apply for the Senior AI Platform Specialist position. I look forward to advancing your autonomous platform capabilities.
+
+Best regards,
+Candidate`
       }
     ];
 
@@ -265,6 +377,32 @@ async function forwardOrFallback(req: NextRequest, { params }: { params: Promise
         notes: 'System design round scheduled.',
         salary: '$180,000',
         url: 'https://stripe.com/jobs',
+        tailored_resume: `# Candidate Name - Senior Full-Stack Engineer
+**Location**: Bengaluru, India | **Email**: candidate@example.com | **LinkedIn**: linkedin.com/in/candidate
+
+## Professional Summary
+Senior Full-Stack Engineer with 6+ years architecting high-concurrency payment platforms and developer-facing APIs. Tailored for Stripe Core Payments and Billing infrastructure.
+
+## Technical Proficiencies
+- **Languages**: TypeScript, Python, Ruby, Go, SQL
+- **Frameworks**: React, Next.js, Node.js, FastAPI, Redis, PostgreSQL
+- **Systems**: Microservices, Event Sourcing, Distributed Idempotency, Zero-Downtime Migration
+
+## Professional Experience
+### Senior Full-Stack Engineer | Fintech Platform
+*2022 - Present | Bengaluru, India*
+- **Situation**: Payment checkout experienced latency spikes and race conditions during flash sale volumes.
+- **Task**: Implement distributed idempotency keys and asynchronous message queues for transactional reliability.
+- **Action**: Engineered Redis-backed idempotency layers and RabbitMQ event streaming with comprehensive fallback retries.
+- **Result**: Reduced transaction drop rate to 0.001% and trimmed p95 checkout response time by 48%.`,
+        cover_letter: `Dear Stripe Recruiting Team,
+
+I am excited to submit my application for the Senior Full-Stack Engineer position. Having built resilient payment systems and high-throughput APIs, I admire Stripe's relentless commitment to developer experience and precision engineering.
+
+I welcome the opportunity to discuss how my distributed systems experience can contribute to Stripe's payment infrastructure.
+
+Sincerely,
+Candidate`
       },
       {
         id: 'app-2',
@@ -275,6 +413,26 @@ async function forwardOrFallback(req: NextRequest, { params }: { params: Promise
         notes: 'Tailored resume submitted.',
         salary: '$175,000',
         url: 'https://vercel.com/careers',
+        tailored_resume: `# Candidate Name - Next.js AI Platform Specialist
+**Location**: Remote Worldwide / India | **Email**: candidate@example.com
+
+## Professional Summary
+Specialist Engineer in Next.js App Router, Server Components, Edge Functions, and autonomous AI pipelines. Tailored for Vercel AI SDK and developer platforms.
+
+## Core Competencies
+- Next.js 15, React 19, Server Actions, Edge Middleware
+- AI SDK, Streaming LLM responses, Vector Search, LangChain
+- Web Performance Optimization, Core Web Vitals, Edge Caching
+
+## Notable Achievements
+- Built streaming AI dashboard using Next.js 14 and Vercel AI SDK, reducing Time-To-First-Token to under 120ms.
+- Authored custom React hooks and edge middleware handling millions of real-time requests.`,
+        cover_letter: `Dear Vercel Hiring Team,
+
+As an avid builder in the Next.js ecosystem, I am thrilled to apply for the Next.js AI Platform Specialist position. I look forward to advancing the frontiers of AI-powered web experiences at Vercel.
+
+Best regards,
+Candidate`
       },
     ];
     return NextResponse.json({ applications: currentTracker });

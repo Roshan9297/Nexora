@@ -63,6 +63,8 @@ export interface JobApplication {
   notes: string;
   salary?: string;
   url?: string;
+  tailored_resume?: string;
+  cover_letter?: string;
 }
 
 export interface DocumentInfo {

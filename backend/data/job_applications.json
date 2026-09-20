@@ -7,7 +7,9 @@
     "date": "2026-09-15",
     "notes": "Technical screen scheduled. Practice system design.",
     "salary": "$180,000",
-    "url": "https://stripe.com/jobs"
+    "url": "https://stripe.com/jobs",
+    "tailored_resume": "# Candidate Name - Senior Full-Stack Engineer\n**Location**: Bengaluru, India | **Email**: candidate@example.com | **LinkedIn**: linkedin.com/in/candidate\n\n## Professional Summary\nSenior Full-Stack Engineer with 6+ years architecting high-concurrency payment platforms and developer-facing APIs. Tailored for Stripe Core Payments and Billing infrastructure.\n\n## Technical Proficiencies\n- **Languages**: TypeScript, Python, Ruby, Go, SQL\n- **Frameworks**: React, Next.js, Node.js, FastAPI, Redis, PostgreSQL\n- **Systems**: Microservices, Event Sourcing, Distributed Idempotency, Zero-Downtime Migration\n\n## Professional Experience\n### Senior Full-Stack Engineer | Fintech Platform\n*2022 - Present | Bengaluru, India*\n- **Situation**: Payment checkout experienced latency spikes and race conditions during flash sale volumes.\n- **Task**: Implement distributed idempotency keys and asynchronous message queues for transactional reliability.\n- **Action**: Engineered Redis-backed idempotency layers and RabbitMQ event streaming with comprehensive fallback retries.\n- **Result**: Reduced transaction drop rate to 0.001% and trimmed p95 checkout response time by 48%.",
+    "cover_letter": "Dear Stripe Recruiting Team,\n\nI am excited to submit my application for the Senior Full-Stack Engineer position. Having built resilient payment systems and high-throughput APIs, I admire Stripe's relentless commitment to developer experience and precision engineering.\n\nSincerely,\nCandidate"
   },
   {
     "id": "app-2",
@@ -17,6 +19,8 @@
     "date": "2026-09-17",
     "notes": "Submitted tailored resume and custom cover letter.",
     "salary": "$175,000",
-    "url": "https://vercel.com/careers"
+    "url": "https://vercel.com/careers",
+    "tailored_resume": "# Candidate Name - Next.js AI Platform Specialist\n**Location**: Remote Worldwide / India | **Email**: candidate@example.com\n\n## Professional Summary\nSpecialist Engineer in Next.js App Router, Server Components, Edge Functions, and autonomous AI pipelines. Tailored for Vercel AI SDK and developer platforms.\n\n## Core Competencies\n- Next.js 15, React 19, Server Actions, Edge Middleware\n- AI SDK, Streaming LLM responses, Vector Search, LangChain\n- Web Performance Optimization, Core Web Vitals, Edge Caching\n\n## Notable Achievements\n- Built streaming AI dashboard using Next.js 14 and Vercel AI SDK, reducing Time-To-First-Token to under 120ms.\n- Authored custom React hooks and edge middleware handling millions of real-time requests.",
+    "cover_letter": "Dear Vercel Hiring Team,\n\nAs an avid builder in the Next.js ecosystem, I am thrilled to apply for the Next.js AI Platform Specialist position. I look forward to advancing the frontiers of AI-powered web experiences at Vercel.\n\nBest regards,\nCandidate"
   }
 ]
