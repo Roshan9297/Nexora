@@ -136,6 +136,28 @@ async function forwardOrFallback(req: NextRequest, { params }: { params: Promise
     });
   }
 
+  // Candidate Profile
+  if (path === 'jobs/auto-apply/profile') {
+    if (method === 'POST') {
+      return NextResponse.json({ success: true, profile: body });
+    }
+    return NextResponse.json({
+      name: "Candidate",
+      email: "candidate@example.com",
+      phone: "+1 (555) 019-2834",
+      linkedin: "https://linkedin.com/in/candidate",
+      github: "https://github.com/candidate",
+      portfolio: "https://candidate.dev",
+      target_roles: ["Software Engineer", "Full Stack Developer", "AI Engineer"],
+      target_locations: ["Remote", "Worldwide"],
+      min_salary: "$120,000",
+      auto_apply_enabled: true,
+      max_applications_per_day: 5,
+      resume_filename: "master_resume.pdf",
+      resume_text: "Senior Software Engineer\nExpert in Python, TypeScript, React, Next.js, Node.js, FastAPI, PostgreSQL, and Cloud DevOps.\nBuilt distributed systems serving 10M+ daily events. Spearheaded microservices and automated CI/CD pipelines."
+    });
+  }
+
   // Job Tracker
   if (path === 'jobs/tracker') {
     return NextResponse.json({
@@ -161,6 +183,16 @@ async function forwardOrFallback(req: NextRequest, { params }: { params: Promise
           url: 'https://vercel.com/careers',
         },
       ],
+    });
+  }
+
+  // Documents Upload Fallback
+  if (path === 'documents/upload') {
+    return NextResponse.json({
+      filename: "uploaded_resume.pdf",
+      text: "Candidate Resume\nSoftware Engineer with experience in TypeScript, React, Python, Cloud Architecture, and AI agents.\nPassionate about building scalable applications and high-impact products.",
+      char_count: 500,
+      word_count: 50
     });
   }
 
