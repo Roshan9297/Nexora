@@ -114,3 +114,19 @@ body {
 .prose-dark th {
   background: rgba(255, 255, 255, 0.05);
 }
+
+/* Hide or move Next.js development indicator overlay button from bottom-left avatar */
+[data-nextjs-toast],
+nextjs-portal,
+div[data-nextjs-dev-tools-button],
+div[data-nextjs-toast-wrapper],
+[data-next-badge],
+div[data-nextjs-dialog] {
+  display: none !important;
+}
+
+/* Also ensure Next.js dev indicator toast/badge doesn't block the bottom left */
+nextjs-portal {
+  pointer-events: none !important;
+}
+

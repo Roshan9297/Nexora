@@ -270,30 +270,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* 6. Bottom User Profile Section (Matching Screenshot) */}
+      {/* 6. Bottom User Profile Section */}
       <div className="p-2 border-t border-[#262626]">
         <button
           onClick={openSettings}
-          className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#212121] transition-colors text-left group"
+          className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-[#212121] transition-colors text-left group"
         >
           {/* Avatar Circle with Initials */}
-          <div className="w-8 h-8 rounded-full bg-[#5f7a77] text-white font-semibold text-xs flex items-center justify-center shrink-0">
-            RR
+          <div className="w-8 h-8 rounded-full bg-[#3d5a56] border border-white/10 text-white font-semibold text-xs flex items-center justify-center shrink-0 shadow-sm">
+            YR
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="font-medium text-[13px] text-white truncate">Roshan Roy</p>
-            <p className="text-[11px] text-[#8e8e8e] truncate flex items-center gap-1.5">
-              <span className="text-emerald-400 font-semibold flex items-center gap-1">
+            <div className="flex items-center justify-between">
+              <p className="font-medium text-[13px] text-white truncate">Yericherla Roshan</p>
+            </div>
+            <div className="text-[10.5px] text-[#8e8e8e] flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-tight mt-0.5">
+              <span className="text-emerald-400 font-semibold flex items-center gap-1 shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Unlimited Credits
               </span>
-              <span>•</span>
-              <span className="text-[#3b82f6]">Pro Lifetime</span>
-            </p>
+              <span className="text-zinc-600">•</span>
+              <span className="text-sky-400 font-medium whitespace-nowrap">Pro Lifetime</span>
+            </div>
           </div>
 
-          <SettingsIcon className="w-4 h-4 text-[#8e8e8e] group-hover:text-white transition-colors" />
+          <SettingsIcon className="w-4 h-4 text-[#8e8e8e] group-hover:text-white transition-colors shrink-0" />
         </button>
 
         {/* Official Copyright Protected Banner */}

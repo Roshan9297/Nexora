@@ -142,7 +142,8 @@ export async function POST(req: NextRequest) {
       '- If the user asks to play or listen to a song or music, include: :::song{query="Song Title and Artist"}:::\n' +
       '- If the user asks to play or watch a video or trailer, include: :::video{query="Video or Trailer Title"}:::\n' +
       '- If the user asks to play a game, include: :::game{name="snake|tictactoe|2048|arcade"}:::\n' +
-      'Introduce media in Siri style (e.g. "Playing that for you now.", "Now playing: [Title]. Enjoy the show!").\n' +
+      '- COPYRIGHT PRIVACY MANDATE: NEVER print raw YouTube, Spotify, or external streaming URLs/links in your text response. The player widget handles all streaming internally. Keep text response clean and copyright-safe without displaying any URLs.\n' +
+      'Introduce media in Siri style (e.g. "Playing that for you now.", "Now playing: [Title]. Enjoy the music!").\n' +
       '-----------------------------------------\n';
 
     if (groundTruth) {

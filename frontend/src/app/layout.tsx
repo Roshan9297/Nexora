@@ -29,6 +29,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark h-full">
+      <head>
+        <script src="https://www.youtube.com/iframe_api" async />
+      </head>
       <body className="h-full bg-[#090a10] text-gray-100 antialiased overflow-hidden">
         {children}
       </body>

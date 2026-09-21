@@ -4,10 +4,18 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Play, Pause, RotateCcw, ExternalLink, 
   Music, Film, Clapperboard, Radio, Tv, Sparkles,
-  ChevronLeft, ChevronRight, Layers, ArrowUp, ArrowDown, ArrowLeft, ArrowRight
+  ChevronLeft, ChevronRight, Layers, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
+  Volume2, VolumeX, Disc3, Maximize2, Minimize2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { mediaManager } from '@/lib/mediaManager';
+
+declare global {
+  interface Window {
+    YT?: any;
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
 
 export interface PlayableMediaProps {
   type: 'song' | 'video' | 'game' | 'movie' | 'series';
@@ -380,20 +388,42 @@ export function SongPlayer({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [hasPlayedBefore, setHasPlayedBefore] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
-  const [embedUrl, setEmbedUrl] = useState<string>('');
+  const [videoId, setVideoId] = useState<string | null>(null);
   const [thumbnail, setThumbnail] = useState<string | null>(null);
-  const [showVideo, setShowVideo] = useState(false);
+  const [title, setTitle] = useState<string>(query);
+  const [showVideo, setShowVideo] = useState<boolean>(true);
+
+  // Custom playback time & duration tracking
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(85);
+  const [isMuted, setIsMuted] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<any>(null);
+  const pollIntervalRef = useRef<any>(null);
+  const iframeContainerId = `yt-player-song-${id.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
   // Synchronize with Global Media Coordinator
   useEffect(() => {
     const unsubscribe = mediaManager.subscribe((activeId) => {
       const active = activeId === id;
       setIsPlaying(active);
-      if (active) setHasPlayedBefore(true);
+      if (active) {
+        setHasPlayedBefore(true);
+        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+          playerRef.current.playVideo();
+        }
+      } else {
+        if (playerRef.current && typeof playerRef.current.pauseVideo === 'function') {
+          playerRef.current.pauseVideo();
+        }
+      }
     });
     return unsubscribe;
   }, [id]);
 
+  // Fetch Video ID and Metadata
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
@@ -402,23 +432,17 @@ export function SongPlayer({
       .then((res) => res.json())
       .then((data) => {
         if (isMounted) {
-          if (data.embedUrl) setEmbedUrl(data.embedUrl);
+          if (data.videoId) setVideoId(data.videoId);
           if (data.thumbnail) setThumbnail(data.thumbnail);
+          if (data.title) setTitle(data.title);
           setLoading(false);
-          // Only autoPlay if explicitly requested during this live session
-          if (autoPlay && mediaManager.isLiveInitiated(id)) {
+          if (autoPlay) {
             mediaManager.play(id);
           }
         }
       })
       .catch(() => {
-        if (isMounted) {
-          setEmbedUrl(`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query)}&enablejsapi=1`);
-          setLoading(false);
-          if (autoPlay && mediaManager.isLiveInitiated(id)) {
-            mediaManager.play(id);
-          }
-        }
+        if (isMounted) setLoading(false);
       });
 
     return () => {
@@ -426,70 +450,272 @@ export function SongPlayer({
     };
   }, [query, id, autoPlay]);
 
+  const [hasEnded, setHasEnded] = useState(false);
+
+  // Initialize YouTube Iframe Player
+  useEffect(() => {
+    if (!videoId) return;
+
+    let destroyed = false;
+
+    const initPlayer = () => {
+      if (destroyed || !window.YT || !window.YT.Player) return;
+
+      try {
+        playerRef.current = new window.YT.Player(iframeContainerId, {
+          videoId,
+          playerVars: {
+            autoplay: isPlaying || autoPlay ? 1 : 0,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            modestbranding: 1,
+            rel: 0,
+            playsinline: 1,
+            iv_load_policy: 3,
+          },
+          events: {
+            onReady: (event: any) => {
+              if (destroyed) return;
+              event.target.setVolume(volume);
+              const dur = event.target.getDuration();
+              if (dur && !isNaN(dur)) setDuration(dur);
+              try {
+                if (typeof event.target.setPlaybackQuality === 'function') {
+                  event.target.setPlaybackQuality('highres');
+                }
+              } catch {}
+              if (isPlaying || autoPlay) {
+                try {
+                  event.target.playVideo();
+                } catch {}
+              }
+            },
+            onError: (event: any) => {
+              console.warn('YouTube player error in SongPlayer:', event.data);
+            },
+            onStateChange: (event: any) => {
+              if (destroyed) return;
+              // YT.PlayerState.PLAYING = 1, PAUSED = 2, ENDED = 0
+              if (event.data === 1) {
+                setIsPlaying(true);
+                setHasPlayedBefore(true);
+                setHasEnded(false);
+                try {
+                  if (typeof event.target.setPlaybackQuality === 'function') {
+                    event.target.setPlaybackQuality('highres');
+                  }
+                } catch {}
+              } else if (event.data === 2) {
+                setIsPlaying(false);
+              } else if (event.data === 0) {
+                setIsPlaying(false);
+                setHasEnded(true);
+                mediaManager.pause(id);
+                // Rewind to 0 so YouTube doesn't show recommendations wall
+                try {
+                  event.target.seekTo(0, true);
+                  event.target.pauseVideo();
+                } catch {}
+              }
+            },
+          },
+        });
+      } catch (e) {
+        console.error('Error initializing player:', e);
+      }
+    };
+
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      const checkYT = setInterval(() => {
+        if (window.YT && window.YT.Player) {
+          clearInterval(checkYT);
+          initPlayer();
+        }
+      }, 200);
+      return () => {
+        clearInterval(checkYT);
+        destroyed = true;
+      };
+    }
+
+    return () => {
+      destroyed = true;
+      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+        try {
+          playerRef.current.destroy();
+        } catch {}
+      }
+    };
+  }, [videoId, iframeContainerId]);
+
+  // Polling for track progress and intercepting YouTube creator end-screen suggestion cards
+  useEffect(() => {
+    if (isPlaying) {
+      pollIntervalRef.current = setInterval(() => {
+        if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+          const curr = playerRef.current.getCurrentTime();
+          const dur = playerRef.current.getDuration();
+          if (curr !== undefined) setCurrentTime(curr);
+          if (dur && !isNaN(dur) && dur > 0) setDuration(dur);
+
+          // YouTube end-screen cards (channel logo and video recommendation tiles)
+          // appear during the final 20 seconds of the video.
+          // By intercepting at (dur - 19.5s), we transition to Nexora's clean Replay screen
+          // BEFORE YouTube ever displays the suggestions.
+          if (dur && dur > 25 && curr >= dur - 19.5) {
+            setIsPlaying(false);
+            setHasEnded(true);
+            mediaManager.pause(id);
+            try {
+              playerRef.current.seekTo(0, true);
+              playerRef.current.pauseVideo();
+            } catch {}
+          }
+        }
+      }, 300);
+    } else {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    }
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [isPlaying, id]);
+
   const handlePlay = () => {
     mediaManager.play(id);
+    if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+      playerRef.current.playVideo();
+    }
   };
 
   const handlePause = () => {
     mediaManager.pause(id);
+    if (playerRef.current && typeof playerRef.current.pauseVideo === 'function') {
+      playerRef.current.pauseVideo();
+    }
   };
 
-  const activeIframeSrc = embedUrl
-    ? `${embedUrl}${embedUrl.includes('?') ? '&' : '?'}autoplay=1`
-    : '';
+  const effectiveDuration = duration > 25 ? Math.max(0, duration - 19.5) : duration;
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const targetTime = parseFloat(e.target.value);
+    const clampedTime = Math.min(targetTime, effectiveDuration);
+    setCurrentTime(clampedTime);
+    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+      playerRef.current.seekTo(clampedTime, true);
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    setVolume(val);
+    setIsMuted(val === 0);
+    if (playerRef.current && typeof playerRef.current.setVolume === 'function') {
+      playerRef.current.setVolume(val);
+      if (val > 0 && playerRef.current.isMuted()) {
+        playerRef.current.unMute();
+      }
+    }
+  };
+
+  const toggleMute = () => {
+    if (!playerRef.current) return;
+    if (isMuted) {
+      playerRef.current.unMute();
+      playerRef.current.setVolume(volume || 80);
+      setIsMuted(false);
+    } else {
+      playerRef.current.mute();
+      setIsMuted(true);
+    }
+  };
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  };
+
+  const formatTime = (secs: number) => {
+    if (!secs || isNaN(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
 
   return (
-    <div className="my-3 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-[#0c101c] via-[#101726] to-[#0a0e1a] p-4 shadow-xl shadow-cyan-950/20 max-w-xl">
+    <div 
+      ref={containerRef} 
+      className={`my-3 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-[#0a0e1a] via-[#0f172a] to-[#070b14] shadow-2xl shadow-cyan-950/20 text-white select-none transition-all ${
+        isFullscreen ? 'fixed inset-0 z-50 rounded-none w-screen h-screen flex flex-col justify-between p-6 bg-black' : 'max-w-xl p-4'
+      }`}
+    >
+      {/* Header Info */}
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center shrink-0 shadow-md shadow-cyan-500/20">
-            <Music className={`w-5 h-5 text-white ${isPlaying ? 'animate-pulse' : ''}`} />
+          {/* Animated Vinyl / Artwork */}
+          <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-cyan-500/20 border border-white/10 group">
+            {thumbnail ? (
+              <img
+                src={thumbnail}
+                alt={title}
+                className={`w-full h-full object-cover ${isPlaying ? 'scale-105' : 'opacity-90'} transition-all duration-700`}
+              />
+            ) : (
+              <Disc3 className={`w-6 h-6 text-white ${isPlaying ? 'animate-spin' : ''}`} style={{ animationDuration: '4s' }} />
+            )}
+            {isPlaying && (
+              <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+              </div>
+            )}
           </div>
+
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full">
-                NEXORA Audio
+              <span className="text-[9.5px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-950/70 border border-cyan-500/30 px-2 py-0.5 rounded-full">
+                Nexora Audio Engine
               </span>
-              {isPlaying ? (
+              <span className="text-[9.5px] font-bold uppercase tracking-wider text-amber-300 bg-amber-950/70 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                4K Ultra HD
+              </span>
+              {isPlaying && (
                 <div className="flex items-end gap-0.5 h-3">
                   <span className="w-0.5 bg-cyan-400 animate-pulse h-2"></span>
                   <span className="w-0.5 bg-blue-400 animate-pulse h-3"></span>
                   <span className="w-0.5 bg-purple-400 animate-pulse h-1.5"></span>
                   <span className="w-0.5 bg-emerald-400 animate-pulse h-2.5"></span>
                 </div>
-              ) : hasPlayedBefore ? (
-                <span className="text-[10px] font-mono text-amber-300 bg-amber-950/50 border border-amber-500/30 px-1.5 py-0.2 rounded">
-                  Paused
-                </span>
-              ) : null}
+              )}
             </div>
-            <h4 className="text-sm font-semibold text-white truncate mt-0.5">
-              {query || 'Playing Music Track'}
+            <h4 className="text-sm font-semibold text-white truncate mt-0.5 tracking-tight">
+              {title}
             </h4>
+            <p className="text-[11px] text-gray-400 truncate">
+              Full Track • 4K UHD • {formatTime(effectiveDuration)}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          {isPlaying ? (
-            <button
-              onClick={handlePause}
-              className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-medium flex items-center gap-1 hover:bg-amber-500/30 transition-colors"
-              title="Pause Song"
-            >
-              <Pause className="w-3.5 h-3.5" />
-              <span>Pause</span>
-            </button>
-          ) : (
-            <button
-              onClick={handlePlay}
-              className="px-2.5 py-1 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs font-semibold flex items-center gap-1 hover:bg-cyan-500/30 transition-colors"
-              title={hasPlayedBefore ? "Resume Track" : "Play Track"}
-            >
-              <Play className="w-3.5 h-3.5 fill-cyan-300" />
-              <span>{hasPlayedBefore ? 'Resume' : 'Play'}</span>
-            </button>
-          )}
-
+        {/* Video toggle & Status indicator */}
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowVideo(!showVideo)}
             className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
@@ -497,73 +723,214 @@ export function SongPlayer({
                 ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
                 : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
             }`}
-            title="Toggle Music Video Mode"
+            title="Toggle Visual Mode"
           >
             {showVideo ? '🎬 Video' : '🎵 Audio'}
           </button>
-          <a
-            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
-            target="_blank"
-            rel="noreferrer"
-            className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
-            title="Open in YouTube"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+
+          <span className={`text-[10px] font-mono px-2 py-0.5 rounded-md border ${
+            isPlaying 
+              ? 'text-emerald-300 bg-emerald-950/60 border-emerald-500/40' 
+              : hasPlayedBefore 
+              ? 'text-amber-300 bg-amber-950/60 border-amber-500/40' 
+              : 'text-cyan-300 bg-cyan-950/60 border-cyan-500/40'
+          }`}>
+            {isPlaying ? 'Playing' : hasPlayedBefore ? 'Paused' : 'Ready'}
+          </span>
         </div>
       </div>
 
-      {loading ? (
-        <div className="h-24 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center gap-3 text-sm text-cyan-400/80 font-mono">
-          <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-          <span>Tuning into stream...</span>
-        </div>
-      ) : isPlaying ? (
-        <div className="relative rounded-xl overflow-hidden bg-black/60 border border-white/10">
-          <div className={showVideo ? 'aspect-video w-full' : 'h-20 w-full'}>
-            <iframe
-              src={activeIframeSrc}
-              className="w-full h-full"
-              allow="autoplay; encrypted-media; picture-in-picture"
-              allowFullScreen
-            />
+      {/* Video View container (Cinematically cropped to remove YouTube top title banner and bottom YouTube watermark) */}
+      <div className={`relative rounded-xl overflow-hidden border border-white/10 bg-black mb-3 transition-all ${
+        showVideo 
+          ? isFullscreen 
+            ? 'flex-1 w-full max-h-[82vh] aspect-video' 
+            : 'aspect-video w-full' 
+          : 'w-0 h-0 opacity-0 overflow-hidden absolute -top-[9999px]'
+      }`}>
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="w-full h-[134%] -mt-[9.5%] pointer-events-none">
+            <div id={iframeContainerId} className="w-full h-full" />
           </div>
         </div>
-      ) : (
-        /* Paused / Non-Playing Card (Ensures ZERO autoplay on refresh and pause when switching) */
-        <div className="relative h-24 rounded-xl overflow-hidden bg-black/70 border border-white/10 flex items-center justify-between p-4 group">
-          {thumbnail && (
-            <img
-              src={thumbnail}
-              alt={query}
-              className="absolute inset-0 w-full h-full object-cover opacity-20 filter blur-xs group-hover:opacity-30 transition-opacity"
-            />
-          )}
-          <div className="relative z-10 flex items-center gap-3 min-w-0">
-            <button
-              onClick={handlePlay}
-              className="w-11 h-11 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/25 hover:scale-105 active:scale-95 transition-all text-white shrink-0"
-              title={hasPlayedBefore ? "Resume Track" : "Play Track"}
-            >
-              <Play className="w-5 h-5 fill-white ml-0.5" />
-            </button>
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full">
-                {hasPlayedBefore ? '⏸️ Track Paused' : '🎵 Ready to Play'}
+        {/* Initial Start Overlay before first play */}
+        {!isPlaying && !hasPlayedBefore && !loading && (
+          <div 
+            onClick={handlePlay}
+            className="absolute inset-0 z-20 bg-black/80 flex flex-col items-center justify-center p-4 cursor-pointer group transition-all"
+            title="Click to play in 4K"
+          >
+            {thumbnail && (
+              <img
+                src={thumbnail}
+                alt={title}
+                className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500"
+              />
+            )}
+            <div className="relative z-10 flex flex-col items-center gap-2.5 text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 border border-white/20 flex items-center justify-center shadow-2xl shadow-cyan-500/50 group-hover:scale-110 group-active:scale-95 transition-all text-white">
+                <Play className="w-7 h-7 fill-white ml-0.5" />
+              </div>
+              <span className="text-xs font-semibold text-white/90 bg-black/80 px-3 py-1 rounded-full border border-white/10 shadow flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                Play in 4K Ultra HD
               </span>
-              <p className="text-xs text-gray-300 truncate mt-1">
-                {hasPlayedBefore ? 'Click Resume to continue listening' : 'Click to start playback'}
-              </p>
             </div>
           </div>
-          <div className="relative z-10 shrink-0">
-            <button
-              onClick={handlePlay}
-              className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-            >
-              <Play className="w-3.5 h-3.5 fill-cyan-300" />
-              <span>{hasPlayedBefore ? 'Resume' : 'Play Track'}</span>
-            </button>
+        )}
+
+        {/* Custom Pause Overlay - 100% blocks YouTube's related videos/suggestions when paused */}
+        {!isPlaying && hasPlayedBefore && !hasEnded && (
+          <div 
+            onClick={handlePlay}
+            className="absolute inset-0 z-20 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-4 cursor-pointer group transition-all"
+            title="Click to resume"
+          >
+            {thumbnail && (
+              <img
+                src={thumbnail}
+                alt={title}
+                className="absolute inset-0 w-full h-full object-cover opacity-35 filter blur-sm"
+              />
+            )}
+            <div className="relative z-10 flex flex-col items-center gap-2.5 text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 border border-white/20 flex items-center justify-center shadow-xl shadow-cyan-500/40 group-hover:scale-110 group-active:scale-95 transition-all text-white">
+                <Play className="w-7 h-7 fill-white ml-0.5" />
+              </div>
+              <span className="text-xs font-semibold text-white/90 bg-black/75 px-3 py-1 rounded-full border border-white/10 shadow">
+                Paused • Click to Resume
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Replay Overlay on Video End - completely covers any YouTube suggestions wall */}
+        {hasEnded && (
+          <div className="absolute inset-0 z-20 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+            {thumbnail && (
+              <img
+                src={thumbnail}
+                alt={title}
+                className="absolute inset-0 w-full h-full object-cover opacity-25 filter blur-sm"
+              />
+            )}
+            <div className="relative z-10 flex flex-col items-center gap-3 text-center">
+              <button
+                onClick={() => {
+                  setHasEnded(false);
+                  setCurrentTime(0);
+                  if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+                    playerRef.current.seekTo(0, true);
+                  }
+                  handlePlay();
+                }}
+                className="w-14 h-14 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 hover:scale-110 active:scale-95 transition-all text-white"
+                title="Replay Video"
+              >
+                <RotateCcw className="w-6 h-6" />
+              </button>
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-white bg-black/70 px-3 py-1 rounded-full border border-white/10">
+                  Track Finished
+                </span>
+                <p className="text-xs text-gray-400">Click to replay this track</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Transparent click blocker active only during playback to allow pause on click */}
+        {isPlaying && !hasEnded && (
+          <div 
+            onClick={handlePause}
+            className="absolute inset-0 cursor-pointer z-10" 
+            title="Click to pause video"
+          />
+        )}
+      </div>
+
+      {loading ? (
+        <div className="h-16 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center gap-3 text-xs text-cyan-400 font-mono">
+          <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+          <span>Tuning into 4K UHD stream...</span>
+        </div>
+      ) : (
+        /* Custom Player Controls */
+        <div className="space-y-2.5 bg-black/40 rounded-xl p-3 border border-white/5">
+          {/* Progress Bar & Timestamps */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[10px] font-mono text-gray-400 px-0.5">
+              <span>{formatTime(Math.min(currentTime, effectiveDuration))}</span>
+              <span>{formatTime(effectiveDuration)}</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={effectiveDuration || 100}
+              step={0.5}
+              value={Math.min(currentTime, effectiveDuration)}
+              onChange={handleSeek}
+              className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+            />
+          </div>
+
+          {/* Bottom Controls Bar */}
+          <div className="flex items-center justify-between pt-1">
+            {/* Play / Pause Toggle Button */}
+            <div className="flex items-center gap-2">
+              {isPlaying ? (
+                <button
+                  onClick={handlePause}
+                  className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                  title="Pause Playback"
+                >
+                  <Pause className="w-4 h-4 fill-amber-300" />
+                  <span>Pause</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handlePlay}
+                  className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:opacity-90 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-cyan-500/20 active:scale-95"
+                  title="Play Full Song"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>{hasPlayedBefore ? 'Resume' : 'Play Full Song'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Volume & Audio Output & Fullscreen Control */}
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={toggleMute}
+                  className="text-gray-400 hover:text-white p-1 transition-colors"
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={isMuted ? 0 : volume}
+                  onChange={handleVolumeChange}
+                  className="w-16 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                  title={`Volume: ${isMuted ? 0 : volume}%`}
+                />
+              </div>
+
+              {showVideo && (
+                <button
+                  onClick={toggleFullscreen}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                  title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                >
+                  {isFullscreen ? <Minimize2 className="w-4 h-4 text-cyan-400" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -572,7 +939,7 @@ export function SongPlayer({
 }
 
 /* =========================================================================
-   3. VIDEO PLAYER
+   3. VIDEO PLAYER (Custom Video Player)
    ========================================================================= */
 export function VideoPlayer({ 
   query, 
@@ -586,16 +953,34 @@ export function VideoPlayer({
   const id = mediaId || `video-${encodeURIComponent(query)}`;
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [hasPlayedBefore, setHasPlayedBefore] = useState<boolean>(false);
+  const [hasEnded, setHasEnded] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
-  const [embedUrl, setEmbedUrl] = useState<string>('');
+  const [videoId, setVideoId] = useState<string | null>(null);
   const [thumbnail, setThumbnail] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(85);
+  const [isMuted, setIsMuted] = useState(false);
+
+  const playerRef = useRef<any>(null);
+  const pollIntervalRef = useRef<any>(null);
+  const iframeContainerId = `yt-player-video-${id.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
   // Synchronize with Global Media Coordinator
   useEffect(() => {
     const unsubscribe = mediaManager.subscribe((activeId) => {
       const active = activeId === id;
       setIsPlaying(active);
-      if (active) setHasPlayedBefore(true);
+      if (active) {
+        setHasPlayedBefore(true);
+        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+          playerRef.current.playVideo();
+        }
+      } else {
+        if (playerRef.current && typeof playerRef.current.pauseVideo === 'function') {
+          playerRef.current.pauseVideo();
+        }
+      }
     });
     return unsubscribe;
   }, [id]);
@@ -608,23 +993,16 @@ export function VideoPlayer({
       .then((res) => res.json())
       .then((data) => {
         if (isMounted) {
-          if (data.embedUrl) setEmbedUrl(data.embedUrl);
+          if (data.videoId) setVideoId(data.videoId);
           if (data.thumbnail) setThumbnail(data.thumbnail);
           setLoading(false);
-          // Only autoPlay if explicitly requested during this live session
-          if (autoPlay && mediaManager.isLiveInitiated(id)) {
+          if (autoPlay) {
             mediaManager.play(id);
           }
         }
       })
       .catch(() => {
-        if (isMounted) {
-          setEmbedUrl(`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(query)}&enablejsapi=1`);
-          setLoading(false);
-          if (autoPlay && mediaManager.isLiveInitiated(id)) {
-            mediaManager.play(id);
-          }
-        }
+        if (isMounted) setLoading(false);
       });
 
     return () => {
@@ -632,20 +1010,220 @@ export function VideoPlayer({
     };
   }, [query, id, autoPlay]);
 
+  // Initialize YouTube Iframe Player for Video
+  useEffect(() => {
+    if (!videoId) return;
+
+    let destroyed = false;
+
+    const initPlayer = () => {
+      if (destroyed || !window.YT || !window.YT.Player) return;
+
+      try {
+        playerRef.current = new window.YT.Player(iframeContainerId, {
+          videoId,
+          playerVars: {
+            autoplay: isPlaying || autoPlay ? 1 : 0,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            modestbranding: 1,
+            rel: 0,
+            playsinline: 1,
+            iv_load_policy: 3,
+          },
+          events: {
+            onReady: (event: any) => {
+              if (destroyed) return;
+              event.target.setVolume(volume);
+              const dur = event.target.getDuration();
+              if (dur && !isNaN(dur)) setDuration(dur);
+              try {
+                if (typeof event.target.setPlaybackQuality === 'function') {
+                  event.target.setPlaybackQuality('highres');
+                }
+              } catch {}
+              if (isPlaying || autoPlay) {
+                try {
+                  event.target.playVideo();
+                } catch {}
+              }
+            },
+            onError: (event: any) => {
+              console.warn('YouTube Player error in VideoPlayer:', event.data);
+            },
+            onStateChange: (event: any) => {
+              if (destroyed) return;
+              if (event.data === 1) {
+                setIsPlaying(true);
+                setHasPlayedBefore(true);
+                setHasEnded(false);
+                try {
+                  if (typeof event.target.setPlaybackQuality === 'function') {
+                    event.target.setPlaybackQuality('highres');
+                  }
+                } catch {}
+              } else if (event.data === 2) {
+                setIsPlaying(false);
+              } else if (event.data === 0) {
+                setIsPlaying(false);
+                setHasEnded(true);
+                mediaManager.pause(id);
+                // Rewind to 0 and pause so YouTube does not render suggestion thumbnails
+                try {
+                  event.target.seekTo(0, true);
+                  event.target.pauseVideo();
+                } catch {}
+              }
+            },
+          },
+        });
+      } catch (e) {
+        console.error('Error initializing video player:', e);
+      }
+    };
+
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      const checkYT = setInterval(() => {
+        if (window.YT && window.YT.Player) {
+          clearInterval(checkYT);
+          initPlayer();
+        }
+      }, 200);
+      return () => {
+        clearInterval(checkYT);
+        destroyed = true;
+      };
+    }
+
+    return () => {
+      destroyed = true;
+      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+        try {
+          playerRef.current.destroy();
+        } catch {}
+      }
+    };
+  }, [videoId, iframeContainerId]);
+
+  // Polling for video track progress and intercepting YouTube creator end-screen suggestion cards
+  useEffect(() => {
+    if (isPlaying) {
+      pollIntervalRef.current = setInterval(() => {
+        if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+          const curr = playerRef.current.getCurrentTime();
+          const dur = playerRef.current.getDuration();
+          if (curr !== undefined) setCurrentTime(curr);
+          if (dur && !isNaN(dur) && dur > 0) setDuration(dur);
+
+          // YouTube end-screen cards (recommendation tiles/channel watermarks)
+          // appear in the last 20 seconds of the video.
+          // By intercepting at (dur - 19.5s), we transition to Nexora's clean Replay screen
+          // BEFORE YouTube ever displays the suggestions.
+          if (dur && dur > 25 && curr >= dur - 19.5) {
+            setIsPlaying(false);
+            setHasEnded(true);
+            mediaManager.pause(id);
+            try {
+              playerRef.current.seekTo(0, true);
+              playerRef.current.pauseVideo();
+            } catch {}
+          }
+        }
+      }, 300);
+    } else {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    }
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [isPlaying, id]);
+
   const handlePlay = () => {
     mediaManager.play(id);
+    if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+      playerRef.current.playVideo();
+    }
   };
 
   const handlePause = () => {
     mediaManager.pause(id);
+    if (playerRef.current && typeof playerRef.current.pauseVideo === 'function') {
+      playerRef.current.pauseVideo();
+    }
   };
 
-  const activeIframeSrc = embedUrl
-    ? `${embedUrl}${embedUrl.includes('?') ? '&' : '?'}autoplay=1`
-    : '';
+  const effectiveDuration = duration > 25 ? Math.max(0, duration - 19.5) : duration;
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const targetTime = parseFloat(e.target.value);
+    const clampedTime = Math.min(targetTime, effectiveDuration);
+    setCurrentTime(clampedTime);
+    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+      playerRef.current.seekTo(clampedTime, true);
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    setVolume(val);
+    setIsMuted(val === 0);
+    if (playerRef.current && typeof playerRef.current.setVolume === 'function') {
+      playerRef.current.setVolume(val);
+      if (val > 0 && playerRef.current.isMuted()) {
+        playerRef.current.unMute();
+      }
+    }
+  };
+
+  const toggleMute = () => {
+    if (!playerRef.current) return;
+    if (isMuted) {
+      playerRef.current.unMute();
+      playerRef.current.setVolume(volume || 80);
+      setIsMuted(false);
+    } else {
+      playerRef.current.mute();
+      setIsMuted(true);
+    }
+  };
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  };
+
+  const formatTime = (secs: number) => {
+    if (!secs || isNaN(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
 
   return (
-    <div className="my-3 rounded-2xl border border-blue-500/30 bg-gradient-to-br from-[#0a0f1d] to-[#070a14] p-4 shadow-xl shadow-blue-950/20 max-w-2xl">
+    <div 
+      ref={containerRef}
+      className={`my-3 rounded-2xl border border-blue-500/30 bg-gradient-to-br from-[#0a0f1d] to-[#070a14] shadow-xl shadow-blue-950/20 text-white select-none transition-all ${
+        isFullscreen ? 'fixed inset-0 z-50 rounded-none w-screen h-screen flex flex-col justify-between p-6 bg-black' : 'max-w-2xl p-4'
+      }`}
+    >
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-lg bg-red-600/20 border border-red-500/40 flex items-center justify-center shrink-0">
@@ -654,7 +1232,11 @@ export function VideoPlayer({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400">
-                NEXORA Cinema
+                NEXORA Video Player
+              </span>
+              <span className="text-[9.5px] font-bold uppercase tracking-wider text-amber-300 bg-amber-950/70 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                4K Ultra HD
               </span>
               {isPlaying ? (
                 <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/50 border border-emerald-500/30 px-1.5 py-0.2 rounded">
@@ -692,54 +1274,191 @@ export function VideoPlayer({
               <span>{hasPlayedBefore ? 'Resume' : 'Play'}</span>
             </button>
           )}
-
-          <a
-            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`}
-            target="_blank"
-            rel="noreferrer"
-            className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors text-xs flex items-center gap-1"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span>YouTube</span>
-          </a>
         </div>
       </div>
 
-      {loading ? (
-        <div className="aspect-video w-full rounded-xl bg-black/40 border border-white/5 flex items-center justify-center gap-3 text-sm text-blue-400/80 font-mono">
-          <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-          <span>Loading cinema video player...</span>
+      {/* Video Display Container (Cinematically cropped to remove YouTube top title banner and bottom watermark) */}
+      <div className={`relative rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl mb-3 transition-all ${
+        isFullscreen 
+          ? 'flex-1 w-full max-h-[82vh] aspect-video' 
+          : 'aspect-video w-full'
+      }`}>
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="w-full h-[134%] -mt-[9.5%] pointer-events-none">
+            <div id={iframeContainerId} className="w-full h-full" />
+          </div>
         </div>
-      ) : isPlaying ? (
-        <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-2xl">
-          <iframe
-            src={activeIframeSrc}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
+
+        {/* Initial Start Overlay before first play */}
+        {!isPlaying && !hasPlayedBefore && !loading && (
+          <div 
+            onClick={handlePlay}
+            className="absolute inset-0 z-20 bg-black/80 flex flex-col items-center justify-center p-4 cursor-pointer group transition-all"
+            title="Click to play in 4K"
+          >
+            {thumbnail && (
+              <img
+                src={thumbnail}
+                alt={query}
+                className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500"
+              />
+            )}
+            <div className="relative z-10 flex flex-col items-center gap-2.5 text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 border border-white/20 flex items-center justify-center shadow-2xl shadow-blue-500/50 group-hover:scale-110 group-active:scale-95 transition-all text-white">
+                <Play className="w-7 h-7 fill-white ml-0.5" />
+              </div>
+              <span className="text-xs font-semibold text-white/90 bg-black/80 px-3 py-1 rounded-full border border-white/10 shadow flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-amber-300" />
+                Play in 4K Ultra HD
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Pause Overlay - 100% blocks YouTube's related videos/suggestions when paused */}
+        {!isPlaying && hasPlayedBefore && !hasEnded && (
+          <div 
+            onClick={handlePlay}
+            className="absolute inset-0 z-20 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-4 cursor-pointer group transition-all"
+            title="Click to resume"
+          >
+            {thumbnail && (
+              <img
+                src={thumbnail}
+                alt={query}
+                className="absolute inset-0 w-full h-full object-cover opacity-35 filter blur-sm"
+              />
+            )}
+            <div className="relative z-10 flex flex-col items-center gap-2.5 text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 border border-white/20 flex items-center justify-center shadow-xl shadow-blue-500/40 group-hover:scale-110 group-active:scale-95 transition-all text-white">
+                <Play className="w-7 h-7 fill-white ml-0.5" />
+              </div>
+              <span className="text-xs font-semibold text-white/90 bg-black/75 px-3 py-1 rounded-full border border-white/10 shadow">
+                Paused • Click to Resume
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Replay Overlay on Video End - completely covers any YouTube suggestions wall */}
+        {hasEnded && (
+          <div className="absolute inset-0 z-20 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+            {thumbnail && (
+              <img
+                src={thumbnail}
+                alt={query}
+                className="absolute inset-0 w-full h-full object-cover opacity-25 filter blur-sm"
+              />
+            )}
+            <div className="relative z-10 flex flex-col items-center gap-3 text-center">
+              <button
+                onClick={() => {
+                  setHasEnded(false);
+                  setCurrentTime(0);
+                  if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+                    playerRef.current.seekTo(0, true);
+                  }
+                  handlePlay();
+                }}
+                className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 hover:scale-110 active:scale-95 transition-all text-white"
+                title="Replay Video"
+              >
+                <RotateCcw className="w-6 h-6" />
+              </button>
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-white bg-black/70 px-3 py-1 rounded-full border border-white/10">
+                  Video Finished
+                </span>
+                <p className="text-xs text-gray-400">Click to replay this video</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Transparent click blocker active only during playback to allow pause on click */}
+        {isPlaying && !hasEnded && (
+          <div 
+            onClick={handlePause}
+            className="absolute inset-0 cursor-pointer z-10" 
+            title="Click to pause video"
           />
+        )}
+      </div>
+
+      {loading ? (
+        <div className="h-14 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center gap-3 text-sm text-blue-400/80 font-mono">
+          <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+          <span>Loading 4K UHD video stream...</span>
         </div>
       ) : (
-        /* Paused / Non-Playing Card (Ensures ZERO autoplay on refresh and pause when switching) */
-        <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/80 border border-white/10 flex items-center justify-center group">
-          {thumbnail && (
-            <img
-              src={thumbnail}
-              alt={query}
-              className="absolute inset-0 w-full h-full object-cover opacity-35 filter blur-xs group-hover:opacity-45 transition-opacity"
+        /* Custom Video Player Timeline & Controls */
+        <div className="space-y-2.5 bg-black/40 rounded-xl p-3 border border-white/5">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[10px] font-mono text-gray-400 px-0.5">
+              <span>{formatTime(Math.min(currentTime, effectiveDuration))}</span>
+              <span>{formatTime(effectiveDuration)}</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={effectiveDuration || 100}
+              step={0.5}
+              value={Math.min(currentTime, effectiveDuration)}
+              onChange={handleSeek}
+              className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-400"
             />
-          )}
-          <div className="relative z-10 flex flex-col items-center gap-2.5 p-4 text-center">
-            <button
-              onClick={handlePlay}
-              className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 hover:scale-110 active:scale-95 transition-all text-white"
-              title={hasPlayedBefore ? "Resume Video" : "Play Video"}
-            >
-              <Play className="w-7 h-7 fill-white ml-0.5" />
-            </button>
-            <span className="text-xs font-semibold text-white bg-black/60 px-3 py-1 rounded-full border border-white/10 backdrop-blur-sm">
-              {hasPlayedBefore ? '▶️ Click to Resume Video' : '▶️ Click to Play Video'}
-            </span>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-2">
+              {isPlaying ? (
+                <button
+                  onClick={handlePause}
+                  className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                >
+                  <Pause className="w-4 h-4 fill-amber-300" />
+                  <span>Pause</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handlePlay}
+                  className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:opacity-90 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-blue-500/20 active:scale-95"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>{hasPlayedBefore ? 'Resume' : 'Play Video'}</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={toggleMute}
+                  className="text-gray-400 hover:text-white p-1 transition-colors"
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={isMuted ? 0 : volume}
+                  onChange={handleVolumeChange}
+                  className="w-16 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-400"
+                  title={`Volume: ${isMuted ? 0 : volume}%`}
+                />
+              </div>
+
+              <button
+                onClick={toggleFullscreen}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4 text-blue-400" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         </div>
       )}

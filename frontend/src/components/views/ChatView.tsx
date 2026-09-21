@@ -541,7 +541,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
               : '';
             const mediaItem = !isUser ? extractPlayableMedia(msg.content, prevUserMsg) : null;
             const cleanDisplayContent = msg.content
-              ? msg.content.replace(/:::(song|video|game|movie|series)\{[^}]+\}:::/g, '').trim()
+              ? msg.content
+                  .replace(/:::(song|video|game|movie|series)\{[^}]+\}:::/g, '')
+                  // Hide raw streaming / YouTube URLs from response text for copyright safety
+                  .replace(/(?:https?:\/\/)?(?:www\.)?(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)[\w-]{11}(?:\S*)?/gi, '')
+                  .replace(/https?:\/\/\S+(?:spotify|youtube|soundcloud|applemusic|saavn|gaana)\S*/gi, '')
+                  .trim()
               : '';
 
             return (
@@ -608,6 +613,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                               platform={mediaItem.platform}
                               season={(mediaItem as any).season}
                               episode={(mediaItem as any).episode}
+                              autoPlay={index === messages.length - 1}
                             />
                           </div>
                         )}

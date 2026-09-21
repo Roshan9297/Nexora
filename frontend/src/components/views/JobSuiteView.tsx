@@ -77,29 +77,31 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
 
   // 0. Auto-Applier Robot State
   const [candidateProfile, setCandidateProfile] = useState<any>({
-    name: 'Candidate',
-    email: 'candidate@example.com',
-    phone: '+1 (555) 019-2834',
-    linkedin: 'https://linkedin.com/in/candidate',
-    github: 'https://github.com/candidate',
-    portfolio: 'https://candidate.dev',
-    target_roles: ['Software Engineer', 'Full Stack Developer', 'AI Engineer'],
-    target_locations: ['Remote', 'Worldwide'],
-    min_salary: '$120,000',
+    name: 'Yericherla Roshan',
+    email: 'roy327882@gmail.com',
+    phone: '+91 8688409297',
+    linkedin: 'https://linkedin.com/in/yericherla-roshan',
+    github: 'https://github.com/yericherla-roshan',
+    portfolio: 'https://yericherla-roshan.dev',
+    target_roles: ['.NET Full Stack Developer', 'Senior .NET Developer', 'C# / ASP.NET Core Backend Engineer', '.NET Core & Angular Developer'],
+    target_locations: ['Hyderabad, Telangana, India', 'Bengaluru, Karnataka, India', 'Remote Worldwide', 'International (Visa Sponsorship Provided)'],
+    min_salary: '₹9,00,000 (9 LPA) / $85,000',
     auto_apply_enabled: true,
-    max_applications_per_day: 5,
+    max_applications_per_day: 9999,
     resume_text: '',
-    resume_filename: 'master_resume.pdf'
+    resume_filename: 'Yericherla Roshan.pdf'
   });
-  const [targetRolesInput, setTargetRolesInput] = useState('Software Engineer, Full Stack Developer, AI Engineer');
-  const [targetLocationsInput, setTargetLocationsInput] = useState('Remote, Worldwide');
+  const [targetRolesInput, setTargetRolesInput] = useState('.NET Full Stack Developer, Senior .NET Developer, C# / ASP.NET Core Backend Engineer (4 Years Experience)');
+  const [targetLocationsInput, setTargetLocationsInput] = useState('Hyderabad, Telangana, India, Bengaluru, Remote Worldwide, International (Visa Sponsorship Provided)');
   const [autoApplyLogs, setAutoApplyLogs] = useState<any[]>([]);
   const [isRunningAutoApply, setIsRunningAutoApply] = useState(false);
   const [autoApplyMessage, setAutoApplyMessage] = useState<string | null>(null);
+  const [lastNotification, setLastNotification] = useState<{ sent_to?: string; subject?: string; mailto_url?: string } | null>(null);
+  const [individualEmails, setIndividualEmails] = useState<Array<{ company: string; position: string; subject: string; body: string; mailto_url: string }>>([]);
   const [isUploadingResume, setIsUploadingResume] = useState(false);
 
   // 1. Find Jobs State
-  const [jobQuery, setJobQuery] = useState('Full Stack Engineer');
+  const [jobQuery, setJobQuery] = useState('.NET Developer (4 Years Experience)');
   const [jobLocation, setJobLocation] = useState('Remote');
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [isSearchingJobs, setIsSearchingJobs] = useState(false);
@@ -156,6 +158,16 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
   } | null>(null);
   const [isReTailoringModal, setIsReTailoringModal] = useState(false);
 
+  // Email Confirmation Preview Modal State
+  const [selectedEmailModal, setSelectedEmailModal] = useState<{
+    company: string;
+    position: string;
+    subject: string;
+    body: string;
+    mailto_url: string;
+  } | null>(null);
+
+
   // Load candidate profile, tracker, and logs on mount
   useEffect(() => {
     getCandidateProfile()
@@ -204,26 +216,27 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
     }
 
     const techKeywords = [
-      'Python', 'TypeScript', 'JavaScript', 'React', 'Next.js', 'Node.js', 'Go', 'Golang', 'Java',
-      'C++', 'C#', 'SQL', 'PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'Docker', 'Kubernetes',
-      'AWS', 'GCP', 'Azure', 'FastAPI', 'Django', 'GraphQL', 'REST', 'TailwindCSS', 'Kafka',
-      'Linux', 'Git', 'CI/CD', 'Machine Learning', 'AI', 'LLM', 'LangChain', 'System Design'
+      'C#', '.NET', '.NET Core', '.NET 8', 'ASP.NET Core', 'ASP.NET Core Web API', 'ASP.NET MVC',
+      'Entity Framework Core', 'EF Core', 'Angular 19', 'Angular', 'TypeScript', 'SQL Server', 'Azure SQL',
+      'Microservices', 'Web API', 'Microsoft Azure', 'Azure Blob Storage', 'Docker', 'Azure DevOps',
+      'GitHub Actions', 'CI/CD', 'RabbitMQ', 'Redis', 'Kafka', 'RESTful APIs', 'gRPC', 'xUnit', 'NUnit',
+      'Clean Architecture', 'CQRS', 'LINQ', 'T-SQL', 'JWT', 'OAuth2', 'RBAC'
     ];
     const lowerRaw = raw.toLowerCase();
     const matched = techKeywords.filter((k) => {
       const lowerK = k.toLowerCase();
-      if (lowerK === 'c++' || lowerK === 'c#') {
+      if (lowerK === 'c#' || lowerK === '.net') {
         return lowerRaw.includes(lowerK);
       }
       return new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(raw);
     });
     const skillsDisplay = matched.length > 0
       ? matched.join(', ')
-      : 'Full-Stack Architecture, Python, TypeScript, React, APIs, Distributed Systems';
+      : 'C#, .NET 8 / .NET Core, ASP.NET Core Web API, Entity Framework Core, Angular 19, TypeScript, SQL Server, Azure, Docker, CI/CD';
 
     const experienceBullets = lines.filter((l) =>
-      l.startsWith('-') || l.startsWith('•') || l.startsWith('*') ||
-      /\b(?:developed|built|engineered|architected|led|managed|implemented|designed|created|optimized|reduced|increased)\b/i.test(l)
+      l.startsWith('-') || l.startsWith('•') || l.startsWith('*') || l.startsWith('') ||
+      /\b(?:developed|built|engineered|architected|led|managed|implemented|designed|created|optimized|reduced|delivered|troubleshot)\b/i.test(l)
     );
 
     let starAchievements = '';
@@ -233,51 +246,67 @@ export const JobSuiteView: React.FC<JobSuiteViewProps> = ({ settings }) => {
         return `- **STAR Focus (${comp})**: ${clean}`;
       }).join('\n');
     } else {
-      starAchievements = `- **Situation & Task**: Spearheaded key engineering initiatives targeting high-availability service design at ${comp}.\n- **Action**: Architected scalable microservices and modular components utilizing ${skillsDisplay}.\n- **Result**: Boosted throughput and slashed latency while maintaining 99.99% system reliability.`;
+      starAchievements = `- **Situation & Task**: Spearheaded .NET 8 & ASP.NET Core Web API backend engineering initiatives at ${comp}.\n- **Action**: Architected scalable RESTful microservices and Angular 19 components using ${skillsDisplay}.\n- **Result**: Boosted system throughput, streamlined automated healthcare workflows, and maintained 99.99% high availability SLA.`;
     }
 
     return `# ${name} - ${pos}
-**Target Company**: ${comp} | **Location**: India / Remote (Visa Ready) | **Email**: ${candidateEmail}
+**Target Company**: ${comp} | **Location**: Hyderabad / Bengaluru / Remote (Visa Ready) | **Email**: ${candidateEmail}
+**Mobile**: +91 8688409297 | **LinkedIn**: linkedin.com/in/yericherla-roshan | **GitHub**: github.com/yericherla-roshan
 
 ## Tailored Executive Summary
-Accomplished ${pos} with hands-on background in scalable modern engineering. Tailored specifically for **${comp}**. Synthesizes core technical competencies in **${skillsDisplay}** to resolve mission-critical architectural bottlenecks, accelerate product releases, and drive measurable performance improvements.
+Accomplished **${pos}** with **4 years of specialized hands-on experience** architecting, developing, testing, deploying, and maintaining high-performance enterprise applications and microservices using C#, .NET 8, ASP.NET Core Web API, Entity Framework Core, SQL Server, Angular 19, TypeScript, and Microsoft Azure. Tailored specifically for **${comp}**. Brings extensive expertise in **Clean Architecture, CQRS, Microservices, and Azure Cloud**, with a proven history of designing mission-critical SaaS platforms (LifePulse, Consort VCA-NET) and eliminating database bottlenecks for high-throughput transactional systems.
 
 ## Core Technical Competencies (ATS Optimized for ${comp})
-- **Technical Skills**: ${skillsDisplay}
-- **Methodologies & Architecture**: High-Concurrency APIs, Microservices, Event Sourcing, Distributed Caching, CI/CD Automation
-- **ATS Relevancy**: 98% keyword alignment with ${pos} role at ${comp}
+- **Backend & Languages**: C#, .NET 8, .NET Core, ASP.NET Core Web API, Entity Framework Core (EF Core), LINQ, RESTful APIs, Microservices
+- **Frontend Development**: Angular 19, TypeScript, HTML5, CSS3, Angular Material, Reusable Component Architecture
+- **Database & Optimization**: Microsoft SQL Server, Azure SQL, Stored Procedures, T-SQL, Index Optimization, LINQ Query Optimization
+- **Cloud & DevOps**: Microsoft Azure, Azure Blob Storage, Docker Containerization, Azure DevOps, GitHub Actions, CI/CD
+- **Security & Quality**: JWT Authentication, OAuth2, RBAC, API Security, xUnit, NUnit Unit Testing, Clean Architecture
+- **ATS Role Alignment**: 99% direct keyword match for ${pos} specifications at ${comp}
 
-## Relevant Professional Experience (Derived Directly from Master Resume)
-### Core Engineering Experience
-*Position tailored for ${comp}*
+## Professional Experience (Derived Directly from Master Resume)
+### Navitas Business Consulting Inc. | Software Developer (4 Years Experience)
+*Sep 2022 - Aug 2026 | Hyderabad, Telangana, India (Tailored for ${comp})*
 ${starAchievements}
 
-## Master Resume Source & Verification
-> *The qualifications above are dynamically tailored from the candidate's master resume to maximize ATS match score for ${comp} (${pos}).*
+## Key Projects (Tailored for ${comp})
+- **LifePulse - Kidney Transplant Surveillance SaaS Platform**: Architected ASP.NET Core Web API backend services for daily check-ins, automated alerts, and AI-powered chatbot endpoints.
+- **Consort VCA-NET - Healthcare Workflow Platform**: Built .NET 8, C#, EF Core, and Angular 19 web platform integrated with Azure Blob Storage and e-signature workflows. Resolved latency through LINQ and SQL tuning.
+- **Natyabharathi Portal & AURA Enterprise Automation**: Engineered ASP.NET Core Web APIs and automated business workflows with SQL Server and Power Automate.
 
-${raw.length > 60 ? `### Master Resume Extract\n${raw.slice(0, 800)}...` : ''}`;
+## Education & Certifications
+- **Master of Computer Applications (MCA)** - Osmania University (2023 - 2025)
+- **Bachelor of Computer Applications (BCA)** - Osmania University (2019 - 2022)
+- **Certifications**: IBM SQL & Relational Databases | Prompt Engineering for ChatGPT | Google AI-Powered Ads`;
   };
 
   const generateFallbackCoverLetter = (appName: string, pos: string, comp: string) => {
     return `Dear Hiring Team at ${comp},
 
-I am writing to express my strong interest in the ${pos} position at ${comp}. With extensive experience building high-concurrency systems, scalable cloud services, and responsive web applications, I am enthusiastic about the opportunity to contribute to your engineering objectives.
+I am writing to express my strong enthusiasm for the ${pos} position at ${comp}. With 4 years of dedicated hands-on experience developing and deploying enterprise full-stack solutions using C#, .NET 8 / .NET Core, ASP.NET Core Web API, Entity Framework Core, SQL Server, Angular 19, TypeScript, and Microsoft Azure at Navitas Business Consulting Inc., I am confident in my ability to deliver immediate value to ${comp}.
 
-My background aligns closely with the technical rigor and forward-thinking engineering culture at ${comp}. I look forward to discussing how my experience can deliver measurable value to your team.
+In my previous roles, I have spearheaded the design of high-throughput RESTful microservices, implemented secure document management with Azure Blob Storage, and optimized complex SQL Server and LINQ queries to eliminate performance bottlenecks. I have also built interactive Angular 19 frontends and established CI/CD automation with Azure DevOps and Docker.
+
+My technical experience aligns directly with the engineering standards and mission of ${comp}. I welcome the opportunity to discuss how my background can support your upcoming product milestones.
 
 Sincerely,
-${appName || 'Candidate'}`;
+${appName || 'Yericherla Roshan'}
+Email: ${candidateProfile?.email || 'roy327882@gmail.com'}
+Mobile: +91 8688409297
+LinkedIn: linkedin.com/in/yericherla-roshan`;
   };
 
   const handleOpenTailoredResume = (app: JobApplication) => {
-    const candidateName = candidateProfile.name || 'Candidate';
-    const candidateEmail = candidateProfile.email || 'candidate@example.com';
+    const candidateName = candidateProfile.name || 'Yericherla Roshan';
+    const candidateEmail = candidateProfile.email || 'roy327882@gmail.com';
     const currentBaseResume = resumeText || candidateProfile.resume_text || '';
 
     // Check if the current tailored_resume is missing OR is the old generic fallback placeholder
     const isGeneric = !app.tailored_resume || 
       app.tailored_resume.includes('# Candidate -') || 
       app.tailored_resume.includes('# Candidate Name -') ||
+      app.tailored_resume.includes('# Roshan Roy - Senior Full-Stack Engineer') ||
+      app.tailored_resume.includes('# Roshan Roy - Next.js') ||
       app.tailored_resume.includes('Dedicated and results-oriented Senior Lead Engineer (India Tech Hub)');
     
     let resume = app.tailored_resume;
@@ -543,6 +572,14 @@ ${appName || 'Candidate'}`;
       if (res.success) {
         confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
         setAutoApplyMessage(res.message);
+        if (res.notification) {
+          setLastNotification(res.notification);
+        }
+        if (res.individual_notifications && Array.isArray(res.individual_notifications)) {
+          setIndividualEmails(res.individual_notifications);
+        } else if (res.notification?.individual_emails) {
+          setIndividualEmails(res.notification.individual_emails);
+        }
 
         // Directly merge newly submitted applications into state so they show up immediately
         if (res.applied_jobs && res.applied_jobs.length > 0) {
@@ -650,11 +687,69 @@ ${appName || 'Candidate'}`;
                 </div>
               </div>
 
-              {/* Status Banner */}
+              {/* Status Banner & Individual Company Email Confirmations */}
               {autoApplyMessage && (
-                <div className="mt-4 p-3.5 bg-black/40 border border-purple-500/40 rounded-xl text-xs text-purple-200 flex items-center gap-2">
-                  <RotateCw className={`w-4 h-4 text-pink-400 ${isRunningAutoApply ? 'animate-spin' : ''}`} />
-                  <span>{autoApplyMessage}</span>
+                <div className="mt-4 space-y-3">
+                  <div className="p-3.5 bg-black/40 border border-purple-500/40 rounded-xl text-xs text-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <RotateCw className={`w-4 h-4 text-pink-400 shrink-0 ${isRunningAutoApply ? 'animate-spin' : ''}`} />
+                      <span>{autoApplyMessage}</span>
+                    </div>
+                    {candidateProfile?.email && !isRunningAutoApply && (
+                      <a
+                        href={lastNotification?.mailto_url || `mailto:${candidateProfile.email}?subject=${encodeURIComponent('🎯 [NEXORA Confirmation] Applied Jobs')}&body=${encodeURIComponent('Applications submitted and recorded in your NEXORA tracker.')}`}
+                        className="px-3.5 py-1.5 bg-gradient-to-r from-pink-500/30 to-purple-600/30 hover:from-pink-500/40 hover:to-purple-600/40 text-purple-200 border border-purple-500/40 rounded-xl text-xs font-semibold flex items-center gap-2 self-start sm:self-auto shrink-0 shadow-lg shadow-purple-500/20 transition-all"
+                      >
+                        <Mail className="w-3.5 h-3.5 text-pink-400" />
+                        <span>Open Summary Report ({candidateProfile.email})</span>
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Individual Company Confirmation Emails List */}
+                  {individualEmails.length > 0 && !isRunningAutoApply && (
+                    <div className="p-4 bg-gradient-to-r from-cyan-950/30 via-[#121622] to-purple-950/20 border border-cyan-500/30 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                          <h4 className="text-xs font-semibold text-white">
+                            Individual Company Confirmation Receipts ({individualEmails.length})
+                          </h4>
+                        </div>
+                        <span className="text-[11px] text-cyan-300 font-mono">Sent to {candidateProfile?.email}</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                        {individualEmails.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3 bg-white/[0.03] border border-white/5 hover:border-cyan-500/30 rounded-xl flex items-center justify-between gap-2 transition-all"
+                          >
+                            <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setSelectedEmailModal(item)}>
+                              <p className="text-xs font-semibold text-white truncate hover:text-cyan-300 transition-colors">{item.company}</p>
+                              <p className="text-[11px] text-cyan-300 truncate">{item.position}</p>
+                              <p className="text-[10px] text-gray-400 truncate mt-0.5">{item.subject}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => setSelectedEmailModal(item)}
+                                className="px-2 py-1 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-lg text-[10px] font-medium transition-colors"
+                              >
+                                Read
+                              </button>
+                              <a
+                                href={item.mailto_url}
+                                className="px-2.5 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/40 rounded-lg text-[11px] font-medium flex items-center gap-1.5 transition-colors"
+                              >
+                                <Mail className="w-3 h-3 text-cyan-300" />
+                                <span>Send to Inbox</span>
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -741,15 +836,15 @@ ${appName || 'Candidate'}`;
 
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">
-                          Min Desired Salary
+                          Salary Expectation (India: 9 LPA)
                         </label>
                         <input
                           type="text"
-                          value={candidateProfile.min_salary || '$120,000'}
+                          value={candidateProfile.min_salary || '₹9,00,000 (9 LPA)'}
                           onChange={(e) =>
                             setCandidateProfile((prev: any) => ({ ...prev, min_salary: e.target.value }))
                           }
-                          placeholder="$120,000"
+                          placeholder="₹9,00,000 (9 LPA)"
                           className="w-full bg-[#181d2a] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
                         />
                       </div>
@@ -1703,6 +1798,74 @@ ${appName || 'Candidate'}`;
           </div>
         </div>
       )}
+
+      {/* Individual Company Email Confirmation Modal */}
+      {selectedEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[#121622] border border-cyan-500/40 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+            {/* Header */}
+            <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">{selectedEmailModal.company}</h3>
+                  <p className="text-xs text-cyan-400 font-mono">Official Application Confirmation</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedEmailModal(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Email Metadata */}
+            <div className="px-6 py-3 bg-[#0d1017] border-b border-white/5 text-xs space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 font-medium">From:</span>
+                <span className="text-white font-semibold">{selectedEmailModal.company} Talent Acquisition &bull; Careers</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 font-medium">To:</span>
+                <span className="text-cyan-300 font-mono font-medium">{candidateProfile?.email || 'roy327882@gmail.com'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 font-medium">Subject:</span>
+                <span className="text-gray-200 font-medium">{selectedEmailModal.subject}</span>
+              </div>
+            </div>
+
+            {/* Email Body */}
+            <div className="flex-1 p-6 overflow-y-auto bg-[#0a0c13] text-xs leading-relaxed text-gray-200 whitespace-pre-wrap font-sans selection:bg-cyan-500/30">
+              {selectedEmailModal.body}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 px-6 border-t border-white/5 bg-[#121622] flex items-center justify-between text-xs text-gray-400">
+              <span className="text-cyan-300">Target Recruiter Contact: {candidateProfile?.email}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedEmailModal(null)}
+                  className="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition-colors"
+                >
+                  Close
+                </button>
+                <a
+                  href={selectedEmailModal.mailto_url}
+                  className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:opacity-90 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg shadow-cyan-500/20"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Open in Gmail / Mail Client</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

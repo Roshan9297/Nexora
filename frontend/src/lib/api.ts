@@ -370,3 +370,21 @@ export async function runAutomation(
   });
   return await res.json();
 }
+
+export async function sendDirectConfirmationEmail(
+  toEmail: string,
+  appPassword?: string,
+  individualConfirmations?: any[]
+) {
+  const res = await fetch(`${API_BASE}/api/jobs/email-confirmations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to_email: toEmail,
+      app_password: appPassword,
+      confirmations: individualConfirmations,
+    }),
+  });
+  return await res.json();
+}
+
