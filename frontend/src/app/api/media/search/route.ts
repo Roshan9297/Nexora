@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
         videoId,
         title: q,
         thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-        embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?enablejsapi=1&rel=0&controls=0&modestbranding=1&playsinline=1&iv_load_policy=3`,
+        embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?enablejsapi=1&rel=0&controls=0&modestbranding=1&playsinline=1&iv_load_policy=3&loop=1&playlist=${videoId}`,
         query: q,
         type,
         quality: '4K UHD',

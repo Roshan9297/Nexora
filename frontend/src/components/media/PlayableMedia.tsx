@@ -451,6 +451,7 @@ export function SongPlayer({
   }, [query, id, autoPlay]);
 
   const [hasEnded, setHasEnded] = useState(false);
+  const endedRef = useRef<boolean>(false);
 
   // Initialize YouTube Iframe Player
   useEffect(() => {
@@ -473,6 +474,8 @@ export function SongPlayer({
             rel: 0,
             playsinline: 1,
             iv_load_policy: 3,
+            loop: 1,
+            playlist: videoId,
           },
           events: {
             onReady: (event: any) => {
@@ -498,6 +501,13 @@ export function SongPlayer({
               if (destroyed) return;
               // YT.PlayerState.PLAYING = 1, PAUSED = 2, ENDED = 0
               if (event.data === 1) {
+                // If endedRef is true, ignore internal loop rewind to protect replay state
+                if (endedRef.current) {
+                  try {
+                    event.target.pauseVideo();
+                  } catch {}
+                  return;
+                }
                 setIsPlaying(true);
                 setHasPlayedBefore(true);
                 setHasEnded(false);
@@ -509,13 +519,13 @@ export function SongPlayer({
               } else if (event.data === 2) {
                 setIsPlaying(false);
               } else if (event.data === 0) {
+                endedRef.current = true;
                 setIsPlaying(false);
                 setHasEnded(true);
                 mediaManager.pause(id);
-                // Rewind to 0 so YouTube doesn't show recommendations wall
                 try {
-                  event.target.seekTo(0, true);
                   event.target.pauseVideo();
+                  event.target.seekTo(0, true);
                 } catch {}
               }
             },
@@ -563,19 +573,20 @@ export function SongPlayer({
 
           // YouTube end-screen cards (channel logo and video recommendation tiles)
           // appear during the final 20 seconds of the video.
-          // By intercepting at (dur - 19.5s), we transition to Nexora's clean Replay screen
+          // By intercepting at (dur - 18s), we transition to Nexora's clean Replay screen
           // BEFORE YouTube ever displays the suggestions.
-          if (dur && dur > 25 && curr >= dur - 19.5) {
+          if (dur && dur > 20 && curr >= dur - 18) {
+            endedRef.current = true;
             setIsPlaying(false);
             setHasEnded(true);
             mediaManager.pause(id);
             try {
-              playerRef.current.seekTo(0, true);
               playerRef.current.pauseVideo();
+              playerRef.current.seekTo(0, true);
             } catch {}
           }
         }
-      }, 300);
+      }, 250);
     } else {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     }
@@ -585,6 +596,8 @@ export function SongPlayer({
   }, [isPlaying, id]);
 
   const handlePlay = () => {
+    endedRef.current = false;
+    setHasEnded(false);
     mediaManager.play(id);
     if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
       playerRef.current.playVideo();
@@ -598,7 +611,17 @@ export function SongPlayer({
     }
   };
 
-  const effectiveDuration = duration > 25 ? Math.max(0, duration - 19.5) : duration;
+  const handleReplay = () => {
+    endedRef.current = false;
+    setHasEnded(false);
+    setCurrentTime(0);
+    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+      playerRef.current.seekTo(0, true);
+    }
+    handlePlay();
+  };
+
+  const effectiveDuration = duration > 20 ? Math.max(0, duration - 18) : duration;
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const targetTime = parseFloat(e.target.value);
@@ -748,11 +771,14 @@ export function SongPlayer({
             : 'aspect-video w-full' 
           : 'w-0 h-0 opacity-0 overflow-hidden absolute -top-[9999px]'
       }`}>
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="w-full h-[134%] -mt-[9.5%] pointer-events-none">
+        <div className="absolute inset-0 overflow-hidden bg-black">
+          <div className={`w-full h-[134%] -mt-[9.5%] pointer-events-none transition-opacity duration-300 ${
+            hasEnded || (!isPlaying && hasPlayedBefore) ? 'opacity-0 invisible' : 'opacity-100 visible'
+          }`}>
             <div id={iframeContainerId} className="w-full h-full" />
           </div>
         </div>
+
         {/* Initial Start Overlay before first play */}
         {!isPlaying && !hasPlayedBefore && !loading && (
           <div 
@@ -779,58 +805,51 @@ export function SongPlayer({
           </div>
         )}
 
-        {/* Custom Pause Overlay - 100% blocks YouTube's related videos/suggestions when paused */}
+        {/* Custom Pause Overlay - 100% Solid Opaque to permanently prevent YouTube's related suggestions */}
         {!isPlaying && hasPlayedBefore && !hasEnded && (
           <div 
             onClick={handlePlay}
-            className="absolute inset-0 z-20 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-4 cursor-pointer group transition-all"
+            className="absolute inset-0 z-20 bg-[#080c16] flex flex-col items-center justify-center p-4 cursor-pointer group transition-all"
             title="Click to resume"
           >
             {thumbnail && (
               <img
                 src={thumbnail}
                 alt={title}
-                className="absolute inset-0 w-full h-full object-cover opacity-35 filter blur-sm"
+                className="absolute inset-0 w-full h-full object-cover opacity-40 filter blur-sm"
               />
             )}
             <div className="relative z-10 flex flex-col items-center gap-2.5 text-center">
               <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 border border-white/20 flex items-center justify-center shadow-xl shadow-cyan-500/40 group-hover:scale-110 group-active:scale-95 transition-all text-white">
                 <Play className="w-7 h-7 fill-white ml-0.5" />
               </div>
-              <span className="text-xs font-semibold text-white/90 bg-black/75 px-3 py-1 rounded-full border border-white/10 shadow">
+              <span className="text-xs font-semibold text-white/90 bg-black/80 px-3 py-1 rounded-full border border-white/10 shadow">
                 Paused • Click to Resume
               </span>
             </div>
           </div>
         )}
 
-        {/* Replay Overlay on Video End - completely covers any YouTube suggestions wall */}
+        {/* Replay Overlay on Video End - 100% Solid Opaque to permanently hide all end screen suggestions */}
         {hasEnded && (
-          <div className="absolute inset-0 z-20 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+          <div className="absolute inset-0 z-20 bg-[#080c16] flex flex-col items-center justify-center p-4">
             {thumbnail && (
               <img
                 src={thumbnail}
                 alt={title}
-                className="absolute inset-0 w-full h-full object-cover opacity-25 filter blur-sm"
+                className="absolute inset-0 w-full h-full object-cover opacity-30 filter blur-sm"
               />
             )}
             <div className="relative z-10 flex flex-col items-center gap-3 text-center">
               <button
-                onClick={() => {
-                  setHasEnded(false);
-                  setCurrentTime(0);
-                  if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
-                    playerRef.current.seekTo(0, true);
-                  }
-                  handlePlay();
-                }}
+                onClick={handleReplay}
                 className="w-14 h-14 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 hover:scale-110 active:scale-95 transition-all text-white"
                 title="Replay Video"
               >
                 <RotateCcw className="w-6 h-6" />
               </button>
               <div className="space-y-1">
-                <span className="text-xs font-semibold text-white bg-black/70 px-3 py-1 rounded-full border border-white/10">
+                <span className="text-xs font-semibold text-white bg-black/80 px-3 py-1 rounded-full border border-white/10">
                   Track Finished
                 </span>
                 <p className="text-xs text-gray-400">Click to replay this track</p>
@@ -954,6 +973,7 @@ export function VideoPlayer({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [hasPlayedBefore, setHasPlayedBefore] = useState<boolean>(false);
   const [hasEnded, setHasEnded] = useState<boolean>(false);
+  const endedRef = useRef<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [videoId, setVideoId] = useState<string | null>(null);
   const [thumbnail, setThumbnail] = useState<string | null>(null);
@@ -1031,6 +1051,8 @@ export function VideoPlayer({
             rel: 0,
             playsinline: 1,
             iv_load_policy: 3,
+            loop: 1,
+            playlist: videoId,
           },
           events: {
             onReady: (event: any) => {
@@ -1055,6 +1077,13 @@ export function VideoPlayer({
             onStateChange: (event: any) => {
               if (destroyed) return;
               if (event.data === 1) {
+                // If endedRef is true, ignore internal loop rewind to protect replay state
+                if (endedRef.current) {
+                  try {
+                    event.target.pauseVideo();
+                  } catch {}
+                  return;
+                }
                 setIsPlaying(true);
                 setHasPlayedBefore(true);
                 setHasEnded(false);
@@ -1066,13 +1095,13 @@ export function VideoPlayer({
               } else if (event.data === 2) {
                 setIsPlaying(false);
               } else if (event.data === 0) {
+                endedRef.current = true;
                 setIsPlaying(false);
                 setHasEnded(true);
                 mediaManager.pause(id);
-                // Rewind to 0 and pause so YouTube does not render suggestion thumbnails
                 try {
-                  event.target.seekTo(0, true);
                   event.target.pauseVideo();
+                  event.target.seekTo(0, true);
                 } catch {}
               }
             },
@@ -1123,12 +1152,13 @@ export function VideoPlayer({
           // By intercepting at (dur - 19.5s), we transition to Nexora's clean Replay screen
           // BEFORE YouTube ever displays the suggestions.
           if (dur && dur > 25 && curr >= dur - 19.5) {
+            endedRef.current = true;
             setIsPlaying(false);
             setHasEnded(true);
             mediaManager.pause(id);
             try {
-              playerRef.current.seekTo(0, true);
               playerRef.current.pauseVideo();
+              playerRef.current.seekTo(0, true);
             } catch {}
           }
         }
@@ -1142,6 +1172,8 @@ export function VideoPlayer({
   }, [isPlaying, id]);
 
   const handlePlay = () => {
+    endedRef.current = false;
+    setHasEnded(false);
     mediaManager.play(id);
     if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
       playerRef.current.playVideo();
@@ -1153,6 +1185,16 @@ export function VideoPlayer({
     if (playerRef.current && typeof playerRef.current.pauseVideo === 'function') {
       playerRef.current.pauseVideo();
     }
+  };
+
+  const handleReplay = () => {
+    endedRef.current = false;
+    setHasEnded(false);
+    setCurrentTime(0);
+    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+      playerRef.current.seekTo(0, true);
+    }
+    handlePlay();
   };
 
   const effectiveDuration = duration > 25 ? Math.max(0, duration - 19.5) : duration;
@@ -1283,8 +1325,10 @@ export function VideoPlayer({
           ? 'flex-1 w-full max-h-[82vh] aspect-video' 
           : 'aspect-video w-full'
       }`}>
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="w-full h-[134%] -mt-[9.5%] pointer-events-none">
+        <div className="absolute inset-0 overflow-hidden bg-black">
+          <div className={`w-full h-[134%] -mt-[9.5%] pointer-events-none transition-opacity duration-300 ${
+            hasEnded || (!isPlaying && hasPlayedBefore) ? 'opacity-0 invisible' : 'opacity-100 visible'
+          }`}>
             <div id={iframeContainerId} className="w-full h-full" />
           </div>
         </div>
@@ -1315,58 +1359,51 @@ export function VideoPlayer({
           </div>
         )}
 
-        {/* Custom Pause Overlay - 100% blocks YouTube's related videos/suggestions when paused */}
+        {/* Custom Pause Overlay - 100% Solid Opaque to permanently prevent YouTube's related suggestions */}
         {!isPlaying && hasPlayedBefore && !hasEnded && (
           <div 
             onClick={handlePlay}
-            className="absolute inset-0 z-20 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-4 cursor-pointer group transition-all"
+            className="absolute inset-0 z-20 bg-[#070a14] flex flex-col items-center justify-center p-4 cursor-pointer group transition-all"
             title="Click to resume"
           >
             {thumbnail && (
               <img
                 src={thumbnail}
                 alt={query}
-                className="absolute inset-0 w-full h-full object-cover opacity-35 filter blur-sm"
+                className="absolute inset-0 w-full h-full object-cover opacity-40 filter blur-sm"
               />
             )}
             <div className="relative z-10 flex flex-col items-center gap-2.5 text-center">
               <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 border border-white/20 flex items-center justify-center shadow-xl shadow-blue-500/40 group-hover:scale-110 group-active:scale-95 transition-all text-white">
                 <Play className="w-7 h-7 fill-white ml-0.5" />
               </div>
-              <span className="text-xs font-semibold text-white/90 bg-black/75 px-3 py-1 rounded-full border border-white/10 shadow">
+              <span className="text-xs font-semibold text-white/90 bg-black/80 px-3 py-1 rounded-full border border-white/10 shadow">
                 Paused • Click to Resume
               </span>
             </div>
           </div>
         )}
 
-        {/* Replay Overlay on Video End - completely covers any YouTube suggestions wall */}
+        {/* Replay Overlay on Video End - 100% Solid Opaque to permanently hide all end screen suggestions */}
         {hasEnded && (
-          <div className="absolute inset-0 z-20 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+          <div className="absolute inset-0 z-20 bg-[#070a14] flex flex-col items-center justify-center p-4">
             {thumbnail && (
               <img
                 src={thumbnail}
                 alt={query}
-                className="absolute inset-0 w-full h-full object-cover opacity-25 filter blur-sm"
+                className="absolute inset-0 w-full h-full object-cover opacity-30 filter blur-sm"
               />
             )}
             <div className="relative z-10 flex flex-col items-center gap-3 text-center">
               <button
-                onClick={() => {
-                  setHasEnded(false);
-                  setCurrentTime(0);
-                  if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
-                    playerRef.current.seekTo(0, true);
-                  }
-                  handlePlay();
-                }}
+                onClick={handleReplay}
                 className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 hover:scale-110 active:scale-95 transition-all text-white"
                 title="Replay Video"
               >
                 <RotateCcw className="w-6 h-6" />
               </button>
               <div className="space-y-1">
-                <span className="text-xs font-semibold text-white bg-black/70 px-3 py-1 rounded-full border border-white/10">
+                <span className="text-xs font-semibold text-white bg-black/80 px-3 py-1 rounded-full border border-white/10">
                   Video Finished
                 </span>
                 <p className="text-xs text-gray-400">Click to replay this video</p>
